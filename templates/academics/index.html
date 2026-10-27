@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-3xl font-extrabold">Academics</h1>
+    <div class="flex gap-2 text-sm">
+      <a href="/academics/programs/add/" class="rounded-lg bg-slate-900 px-3 py-2 font-semibold text-white">Add Program</a>
+    </div>
+  </div>
+
+  <div class="grid gap-5">
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="mb-3 font-bold">Programs</h2>
+      <div class="space-y-2 text-sm">
+        {% for p in programs %}
+          <div class="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{{ p.name }} ({{ p.code }})</span><a class="text-brand-700" href="/academics/programs/{{ p.id }}/edit/">Edit</a></div>
+        {% empty %}<p class="text-slate-500">No programs yet.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

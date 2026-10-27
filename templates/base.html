@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudentHub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Manrope", "ui-sans-serif", "system-ui"],
+          },
+          colors: {
+            brand: {
+              50: "#eff6ff",
+              100: "#dbeafe",
+              600: "#2563eb",
+              700: "#1d4ed8",
+              900: "#0f2c59",
+            },
+          },
+          boxShadow: {
+            soft: "0 10px 40px rgba(10, 37, 64, 0.14)",
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Apply consistent form styling to inputs, selects, textareas */
+    form input[type="text"],
+    form input[type="email"],
+    form input[type="password"],
+    form input[type="number"],
+    form input[type="date"],
+    form input[type="datetime-local"],
+    form input[type="time"],
+    form input[type="url"],
+    form input[type="tel"],
+    form input[type="search"],
+    form input:not([type]),
+    form select,
+    form textarea {
+      display: block;
+      width: 100%;
+      border-radius: 0.5rem;
+      border: 1px solid rgb(203 213 225);
+      background-color: white;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      color: rgb(15 23 42);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    form input:focus,
+    form select:focus,
+    form textarea:focus {
+      outline: none;
+      border-color: rgb(37 99 235);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    form input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 0.25rem;
+      border: 1px solid rgb(203 213 225);
+      color: rgb(37 99 235);
+      box-shadow: none;
+      padding: 0;
+    }
+    form input[type="file"] {
+      font-size: 0.875rem;
+      color: rgb(71 85 105);
+    }
+    form .helptext {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      color: rgb(100 116 139);
+    }
+    form .errorlist {
+      list-style: none;
+      padding: 0;
+      margin: 0.25rem 0 0 0;
+      color: rgb(220 38 38);
+      font-size: 0.75rem;
+    }
+    form p {
+      margin: 0;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900">
+  {% if request.user.is_authenticated %}
+  <nav class="sticky top-0 z-30 border-b border-brand-900/20 bg-brand-900 text-white">
+    <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+      <a href="/" class="text-lg font-extrabold tracking-tight">StudentHub</a>
+      <div class="flex items-center gap-2 text-sm md:gap-5 md:text-base">
+        <a class="rounded-lg bg-white/10 px-3 py-1.5 font-semibold transition hover:bg-white/20" href="/accounts/logout/">Logout</a>
+      </div>
+    </div>
+  </nav>
+  {% endif %}
+  <main class="{% block main_class %}mx-auto w-full max-w-7xl p-4 md:p-6{% endblock %}">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+    {% if request.user.is_authenticated %}
+      <div class="grid gap-5 md:grid-cols-[240px_1fr]">
+        <aside class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm h-fit">
+          <p class="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-400">Navigation</p>
+          <div class="space-y-1 text-sm">
+            {% for label, href in sidebar_links %}
+            <a class="block rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-900" href="{{ href }}">{{ label }}</a>
+            {% endfor %}
+          </div>
+        </aside>
+        <section>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {% if request.user.is_authenticated %}
+        </section>
+      </div>
+    {% endif %}
+  </main>
+</body>
+</html>

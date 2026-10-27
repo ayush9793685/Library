@@ -1,0 +1,4 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-5"><div class="flex items-center justify-between"><h1 class="text-3xl font-extrabold">Announcements</h1>{% if is_admin %}<a class="rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white" href="/notifications/add/">Create Announcement</a>{% endif %}</div><div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">{% for a in announcements %}<div class="border-b border-slate-100 py-3"><p class="font-semibold">{{ a.title }}</p><p class="text-sm text-slate-600">{{ a.description }}</p><p class="mt-1 text-xs text-slate-500">{{ a.publish_date }} {% if a.department %}| {{ a.department.name }}{% elif a.department_name %}| {{ a.department_name }}{% endif %}{% if a.semester %} | {{ a.semester }}{% endif %}</p></div>{% empty %}<p>No announcements.</p>{% endfor %}</div></section>
+{% endblock %}

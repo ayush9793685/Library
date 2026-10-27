@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto max-w-xl">
+  <h1 class="text-3xl font-bold tracking-tight text-slate-900">Add Staff</h1>
+  <p class="mt-1 text-sm text-slate-600">The person receives an email with a link to choose their own password.</p>
+  <form method="post" class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<p class="mt-1 text-xs text-red-600">{{ field.errors|striptags }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="flex justify-end gap-3">
+      <a href="/accounts/staff/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</a>
+      <button class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">Create &amp; Send Email</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-5">
+  <h1 class="text-3xl font-extrabold">My Attendance</h1>
+
+  <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-sm text-slate-500">Overall Attendance</p>
+      <p class="mt-1 text-3xl font-extrabold {% if attendance_percentage < 75 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ attendance_percentage }}%</p>
+    </div>
+  </div>
+
+  <div class="grid gap-5 lg:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-3 font-bold">Course-wise Summary</h2>
+      {% for row in by_course %}
+      <div class="mb-2 flex justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+        <span>{{ row.session__course__code }} – {{ row.session__course__name }}</span>
+        <span class="font-semibold">{{ row.present }}/{{ row.total }}</span>
+      </div>
+      {% empty %}<p class="text-slate-500">No attendance recorded yet.</p>{% endfor %}
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-3 font-bold">Recent Records</h2>
+      {% for r in records %}
+      <div class="mb-2 flex justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+        <span>{{ r.session.session_date|date:"M d, Y" }} – {{ r.session.course.code }}</span>
+        <span class="font-semibold">{{ r.status|title }}</span>
+      </div>
+      {% empty %}<p class="text-slate-500">No records found.</p>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

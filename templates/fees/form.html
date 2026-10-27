@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h1 class="mb-4 text-2xl font-extrabold">{{ title }}</h1>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    {% include '_form_fields.html' %}
+    <div class="flex items-center gap-2 pt-2">
+      <button class="rounded-lg bg-brand-700 px-4 py-2 font-semibold text-white hover:bg-brand-600">Save</button>
+      <a href="{% url 'fees:index' %}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</a>
+    </div>
+  </form>
+</section>
+<script>
+  (function () {
+    var input = document.querySelector("[data-student-search]");
+    if (!input) return;
+    var url = input.getAttribute("data-student-search");
+    var box = document.createElement("div");
+    box.className = "absolute left-0 right-0 z-20 mt-1 hidden max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg";
+    input.parentNode.style.position = "relative";
+    input.parentNode.appendChild(box);
+    var timer = null;
+    function hide() { box.classList.add("hidden"); box.innerHTML = ""; }
+    function show(results) {
+      box.innerHTML = "";
+      if (!results.length) { hide(); return; }
+      results.forEach(function (r) {
+        var row = document.createElement("button");
+        row.type = "button";
+        row.className = "block w-full px-3 py-2 text-left text-sm hover:bg-slate-100";
+        row.textContent = r.id + " \u2014 " + r.name;
+        row.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          input.value = r.id;
+          hide();
+        });
+        box.appendChild(row);
+      });
+      box.classList.remove("hidden");
+    }
+    input.addEventListener("input", function () {
+      clearTimeout(timer);
+      var q = input.value.trim();
+      if (!q) { hide(); return; }
+      timer = setTimeout(function () {
+        fetch(url + "?q=" + encodeURIComponent(q), { credentials: "same-origin" })
+          .then(function (r) { return r.json(); })
+          .then(function (data) { if (input.value.trim() === q) show(data.results); })
+          .catch(hide);
+      }, 200);
+    });
+    input.addEventListener("blur", function () { setTimeout(hide, 150); });
+  })();
+</script>
+{% endblock %}

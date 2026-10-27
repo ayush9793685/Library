@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudentHub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Manrope", "ui-sans-serif", "system-ui"] }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="font-sans bg-white text-slate-900">
+  <header class="border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+      <a href="/" class="text-3xl font-extrabold tracking-tight text-[#0f548f]">StudentHub</a>
+      <div class="flex items-center gap-3">
+        <a href="mailto:contact@studenthub.local" class="hidden text-sm font-bold text-slate-700 md:inline">CONTACT</a>
+        <a href="/accounts/login/" class="rounded-lg bg-[#f25b2a] px-5 py-2.5 text-sm font-extrabold tracking-wide text-white transition hover:bg-[#d94e23]">LOGIN</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative overflow-hidden bg-gradient-to-r from-[#11497c] via-[#185a91] to-[#3b81b5]">
+    <div class="pointer-events-none absolute inset-0 opacity-20" style="background: radial-gradient(circle at 20% 80%, #8cc3e6 0, transparent 35%), radial-gradient(circle at 80% 15%, #90d4ff 0, transparent 30%);"></div>
+    <section class="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 md:grid-cols-2 md:items-center md:px-6 md:py-20">
+      <div>
+        <p class="text-lg font-bold uppercase tracking-wide text-[#ff9b2f]">Student Information System</p>
+        <h1 class="mt-4 text-5xl font-extrabold leading-tight text-white md:text-6xl">Simplify School Operations</h1>
+        <p class="mt-5 max-w-xl text-lg leading-8 text-blue-50">StudentHub helps schools manage enrollment, student profiles, activity tracking, and communication from one secure and easy-to-use platform.</p>
+        <div class="mt-8">
+          <a href="/accounts/login/" class="inline-flex rounded-lg bg-[#f25b2a] px-7 py-3 text-base font-extrabold uppercase tracking-wider text-white transition hover:bg-[#d94e23]">Get Started</a>
+        </div>
+      </div>
+
+      <div class="rounded-3xl bg-white/15 p-3 shadow-2xl backdrop-blur-sm">
+        <img
+          src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1400&q=80"
+          alt="Students in classroom"
+          class="h-[280px] w-full rounded-2xl object-cover md:h-[420px]"
+        >
+      </div>
+    </section>
+  </main>
+</body>
+</html>

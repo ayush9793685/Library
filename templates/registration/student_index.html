@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-5">
+  <h1 class="text-3xl font-extrabold">Course Registration</h1>
+  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="mb-2 font-bold">Available Courses</h2>{% for o in offerings %}<div class="flex items-center justify-between border-b border-slate-100 py-2 text-sm"><span>{% if o.course %}{{ o.course.code }} - {{ o.course.name }}{% else %}{{ o.course_code_text }}{% endif %} | {{ o.semester }} | cap {{ o.capacity }}</span><a class="text-brand-700" href="/registration/offerings/{{ o.id }}/register/">Register</a></div>{% empty %}<p>No open registration offerings.</p>{% endfor %}</div>
+  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="mb-2 font-bold">My Registrations</h2>{% for r in registrations %}<div class="flex items-center justify-between border-b border-slate-100 py-2 text-sm"><span>{% if r.offering.course %}{{ r.offering.course.code }} - {{ r.offering.course.name }}{% else %}{{ r.offering.course_code_text }}{% endif %} - {{ r.status|title }}</span>{% if r.status != 'dropped' %}<a class="text-rose-700" href="/registration/registrations/{{ r.id }}/drop/">Drop</a>{% endif %}</div>{% empty %}<p>No registrations yet.</p>{% endfor %}</div>
+</section>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-3xl font-extrabold">Attendance Sessions</h1>
+    <a href="{% url 'attendance:session_create' %}" class="rounded-lg bg-brand-700 px-3 py-2 font-semibold text-white hover:bg-brand-800">Create Session</a>
+  </div>
+  <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <table class="w-full text-left text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-slate-500">
+          <th class="px-4 py-3 font-medium">Date</th>
+          <th class="px-4 py-3 font-medium">Course</th>
+          <th class="px-4 py-3 font-medium">Department</th>
+          <th class="px-4 py-3 font-medium">Semester</th>
+          <th class="px-4 py-3 font-medium">Time Slot</th>
+          <th class="px-4 py-3 font-medium">Records</th>
+          <th class="px-4 py-3 font-medium"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-medium">{{ s.session_date|date:"M d, Y" }}</td>
+          <td class="px-4 py-3">{{ s.course.code }}</td>
+          <td class="px-4 py-3 text-slate-600">{{ s.department.name|default:"-" }}</td>
+          <td class="px-4 py-3">{{ s.semester }}</td>
+          <td class="px-4 py-3">{{ s.get_time_slot_display }}</td>
+          <td class="px-4 py-3">{{ s.total }}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <a href="{% url 'attendance:mark' s.id %}" class="font-semibold text-brand-700 hover:underline">Mark</a>
+              <a href="{% url 'attendance:session_delete' s.id %}" class="font-semibold text-rose-700 hover:underline">Delete</a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">No sessions created yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

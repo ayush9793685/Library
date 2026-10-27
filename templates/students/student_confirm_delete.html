@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-xl font-bold mb-2">Delete Student</h1>
+<p class="mb-4">Are you sure you want to delete {{ student }}?</p>
+<form method="post">{% csrf_token %}<button class="bg-red-700 text-white px-4 py-2 rounded">Confirm Delete</button></form>
+{% endblock %}

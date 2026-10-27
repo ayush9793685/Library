@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-5">
+  {% if is_admin_view %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <form method="get" class="flex items-end gap-4">
+        <div class="flex-1">
+          <label class="mb-1 block text-sm font-semibold text-slate-700" for="student-select">Select Student</label>
+          <select name="student_id" id="student-select" onchange="this.form.submit()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-600 focus:ring-2 focus:ring-slate-200">
+            <option value="">— Select a student —</option>
+            {% for s in students %}
+              <option value="{{ s.pk }}" {% if student and student.pk == s.pk %}selected{% endif %}>
+                {{ s.student_id }} — {{ s.first_name }} {{ s.last_name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <noscript><button class="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white">View</button></noscript>
+      </form>
+    </div>
+
+    {% if student %}
+      <h1 class="text-2xl font-extrabold">Results — {{ student.first_name }} {{ student.last_name }} ({{ student.student_id }})</h1>
+      <a href="/gradebook/transcript/pdf/?student_id={{ student.pk }}" class="inline-flex rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Transcript PDF View</a>
+    {% endif %}
+  {% else %}
+    <h1 class="text-3xl font-extrabold">My Results</h1>
+    <a href="/gradebook/transcript/pdf/" class="inline-flex rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Transcript PDF View</a>
+  {% endif %}
+
+  {% if student %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Current GPA</p><p class="mt-1 text-3xl font-extrabold">{{ gpa }}</p></div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">CGPA</p><p class="mt-1 text-3xl font-extrabold">{{ cgpa }}</p></div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <table class="min-w-full text-sm">
+        <thead><tr class="text-left text-slate-500"><th class="py-2">Exam</th><th>Course</th><th>Marks</th><th>Grade</th><th>Points</th><th>Credit</th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr class="border-t border-slate-100"><td class="py-2">{{ row.grade.exam.title }}</td><td>{{ row.grade.exam.course_code }}</td><td>{{ row.grade.marks_obtained }}</td><td>{{ row.grade.letter_grade }}</td><td>{{ row.grade.grade_points }}</td><td>{{ row.credit }}</td></tr>
+        {% empty %}
+          <tr><td colspan="6" class="py-3 text-slate-500">No published results yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-3 font-bold">Semester GPA/CGPA History</h2>
+      <table class="min-w-full text-sm">
+        <thead><tr class="text-left text-slate-500"><th class="py-2">Semester</th><th>GPA</th><th>CGPA</th></tr></thead>
+        <tbody>
+        {% for h in semester_history %}
+        <tr class="border-t border-slate-100"><td class="py-2">{{ h.semester }}</td><td>{{ h.gpa }}</td><td>{{ h.cgpa }}</td></tr>
+        {% empty %}
+        <tr><td colspan="3" class="py-3 text-slate-500">No semester data.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

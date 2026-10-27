@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-4" x-data="{ selectAll: false }">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-extrabold">Mark Attendance</h1>
+      <p class="text-sm text-slate-500">{{ session.course.code }} – {{ session.course.name }} • {{ session.session_date }} • {{ session.get_time_slot_display }}</p>
+      <p class="text-xs text-slate-400">{{ session.department.name|default:"-" }} • {{ session.program.name|default:"-" }} • Semester {{ session.semester }}{% if session.instructor %} • {{ session.instructor.full_name }}{% endif %}</p>
+    </div>
+    <div class="flex gap-2 text-sm">
+      <a href="{% url 'attendance:mark_all_present' session.pk %}" class="rounded-lg bg-emerald-700 px-3 py-2 font-semibold text-white hover:bg-emerald-800">Mark All Present</a>
+      <a href="{% url 'attendance:index' %}" class="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50">Back</a>
+    </div>
+  </div>
+
+  <form method="post" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    {% csrf_token %}
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="font-bold">Enrolled Students ({{ enrolled_students|length }})</h2>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" x-model="selectAll" @change="
+          document.querySelectorAll('.status-select').forEach(el => {
+            if(selectAll) el.value = 'present';
+          })
+        " class="rounded border-slate-300">
+        <span>Select All — Present</span>
+      </label>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-slate-500">
+            <th class="py-2 pr-3 font-medium">#</th>
+            <th class="py-2 pr-3 font-medium">Student ID</th>
+            <th class="py-2 pr-3 font-medium">Name</th>
+            <th class="py-2 pr-3 font-medium">Status</th>
+            <th class="py-2 font-medium">Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for es in enrolled_students %}
+          <tr class="border-b border-slate-100">
+            <td class="py-2 pr-3 text-slate-400">{{ forloop.counter }}</td>
+            <td class="py-2 pr-3 font-medium">{{ es.enrollment.student_id }}</td>
+            <td class="py-2 pr-3 text-slate-600">{% if es.student %}{{ es.student.first_name }} {{ es.student.last_name }}{% else %}{{ es.enrollment.student_id }}{% endif %}</td>
+            <td class="py-2 pr-3">
+              <select name="status_{{ es.enrollment.student_id }}" class="status-select rounded-lg border border-slate-300 px-2 py-1 text-sm">
+                {% for value, label in es.form.fields.status.choices %}
+                <option value="{{ value }}"{% if es.form.status.value == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="py-2">
+              <input name="remarks_{{ es.enrollment.student_id }}" value="{{ es.form.remarks.value|default:'' }}" placeholder="Optional" class="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm">
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="py-6 text-center text-slate-500">No students enrolled in this course.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if enrolled_students %}
+    <div class="mt-4 flex items-center justify-end gap-3">
+      <button type="submit" class="rounded-lg bg-brand-700 px-5 py-2 font-semibold text-white hover:bg-brand-800">Save Attendance</button>
+    </div>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends 'base.html' %} {% block content %}
+<section class="space-y-5">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Students</h1>
+            <p class="text-sm text-slate-500">Directory, enrollment status, and profile access.</p>
+        </div>
+        <a href="/students/add/" class="inline-flex items-center justify-center rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-900">+ Add Student</a>
+    </div>
+
+    <form class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-6">
+        <input class="md:col-span-2 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-brand-700 focus:ring-4 focus:ring-brand-100" name="q" value="{{ request.GET.q }}" placeholder="Search by ID, registration, name, email">
+        <select class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-700 focus:ring-4 focus:ring-brand-100" name="status">
+      <option value="">All Status</option>
+      <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
+    </select>
+        <select class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-700 focus:ring-4 focus:ring-brand-100" name="department">
+      <option value="">All Departments</option>
+      {% for dep in department_options %}
+      <option value="{{ dep.id }}" {% if request.GET.department == dep.id|stringformat:"s" %}selected{% endif %}>{{ dep.name }}</option>
+      {% endfor %}
+    </select>
+        <select class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-700 focus:ring-4 focus:ring-brand-100" name="academic_year">
+      <option value="">All Years</option>
+      {% for year in year_options %}
+      <option value="{{ year }}" {% if request.GET.academic_year == year %}selected{% endif %}>{{ year }}</option>
+      {% endfor %}
+    </select>
+        <button class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700">Apply Filters</button>
+    </form>
+
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-4 py-3">Student ID</th>
+                        <th class="px-4 py-3">Name</th>
+                        <th class="px-4 py-3">Department</th>
+                        <th class="px-4 py-3">Program</th>
+                        <th class="px-4 py-3">Year</th>
+                        <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for s in students %}
+                    <tr class="transition hover:bg-slate-50/80">
+                        <td class="px-4 py-3 font-semibold"><a class="text-brand-700 hover:text-brand-900" href="/students/{{ s.id }}/">{{ s.student_id }}</a></td>
+                        <td class="px-4 py-3 text-slate-700">{{ s.first_name }} {{ s.last_name }}</td>
+                        <td class="px-4 py-3 text-slate-700">{{ s.department.name|default:"-" }}</td>
+                        <td class="px-4 py-3 text-slate-700">{{ s.program.name|default:"-" }}</td>
+                        <td class="px-4 py-3 text-slate-700">{{ s.academic_year }}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {% if s.status == 'active' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+                {{ s.get_status_display }}
+              </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <a class="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700" href="/students/{{ s.id }}/">View</a>
+                                <a class="rounded-md bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700" href="/students/{{ s.id }}/edit/">Edit</a> {% if s.status != 'active' %}
+                                <a class="rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700" href="/students/{{ s.id }}/status/active/">Activate</a> {% endif %} {% if s.status != 'inactive' %}
+                                <a class="rounded-md bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-700" href="/students/{{ s.id }}/status/inactive/">Deactivate</a> {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-10 text-center text-slate-500">No students found for the selected filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj %}
+        <div class="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm">
+            <span class="text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <div class="flex gap-2">
+                {% if page_obj.has_previous %}
+                <a class="rounded-md border border-slate-300 px-3 py-1.5" href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}&department={{ request.GET.department }}&academic_year={{ request.GET.academic_year }}">Previous</a>                {% endif %} {% if page_obj.has_next %}
+                <a class="rounded-md border border-slate-300 px-3 py-1.5" href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}&department={{ request.GET.department }}&academic_year={{ request.GET.academic_year }}">Next</a>                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

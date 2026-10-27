@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block content %}
+<section class="space-y-5">
+  <div class="flex items-center justify-between">
+    <h1 class="text-3xl font-extrabold">Attendance Dashboard</h1>
+    <div class="flex gap-2 text-sm">
+      <a href="{% url 'attendance:session_list' %}" class="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50">All Sessions</a>
+      <a href="{% url 'attendance:session_create' %}" class="rounded-lg bg-brand-700 px-3 py-2 font-semibold text-white hover:bg-brand-800">Create Session</a>
+      <div class="group relative">
+        <button class="rounded-lg bg-slate-900 px-3 py-2 font-semibold text-white">Export ▾</button>
+        <div class="absolute right-0 z-10 mt-1 hidden w-36 rounded-lg border border-slate-200 bg-white shadow-lg group-hover:block">
+          <a href="{% url 'attendance:export_csv' %}" class="block px-3 py-2 text-sm hover:bg-slate-50">CSV</a>
+          <a href="{% url 'attendance:export_excel' %}" class="block px-3 py-2 text-sm hover:bg-slate-50">Excel</a>
+          <a href="{% url 'attendance:export_pdf' %}" class="block px-3 py-2 text-sm hover:bg-slate-50">PDF View</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if report %}
+  <div class="grid gap-5 sm:grid-cols-4">
+    {% for item in report %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+      <p class="text-sm text-slate-500">{{ item.status|title }}</p>
+      <p class="text-2xl font-extrabold">{{ item.total }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="grid gap-5 lg:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="mb-3 font-bold">Recent Sessions</h2>
+      {% for s in sessions %}
+      <div class="mb-2 flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+        <div>
+          <span class="font-medium">{{ s.session_date|date:"M d, Y" }}</span>
+          <span class="text-slate-500"> – {{ s.course.code }} ({{ s.total }})</span>
+          <span class="ml-2 text-xs text-slate-400">{{ s.get_time_slot_display }}</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <a class="font-semibold text-brand-700 hover:underline" href="{% url 'attendance:mark' s.id %}">Mark</a>
+          <a class="font-semibold text-rose-700 hover:underline" href="{% url 'attendance:session_delete' s.id %}">Delete</a>
+        </div>
+      </div>
+      {% empty %}<p class="text-slate-500">No sessions yet.</p>{% endfor %}
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="mb-3 font-bold">Attendance Trend (%)</h2>
+      <canvas id="attendanceTrend" height="140"></canvas>
+    </div>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="mb-3 font-bold text-rose-700">Low Attendance Alert (&lt; 75%)</h2>
+    {% if low_attendance %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-slate-500">
+            <th class="py-2 pr-3 font-medium">Student ID</th>
+            <th class="py-2 font-medium">Percentage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in low_attendance %}
+          <tr class="border-b border-rose-50">
+            <td class="py-2 pr-3">{{ row.student_id }}</td>
+            <td class="py-2 font-semibold text-rose-700">{{ row.percentage }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-slate-500">All students are above the 75% threshold.</p>
+    {% endif %}
+  </div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('attendanceTrend'), {
+  type: 'line',
+  data: {
+    labels: {{ trend_labels|safe }},
+    datasets: [{
+      label: 'Attendance %',
+      data: {{ trend_values|safe }},
+      borderColor: '#1d4ed8',
+      backgroundColor: 'rgba(29,78,216,0.15)',
+      fill: true,
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, max: 100 } }
+  }
+});
+</script>
+{% endblock %}

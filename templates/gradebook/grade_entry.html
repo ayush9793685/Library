@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-extrabold">Enter Marks</h1>
+      <p class="text-sm text-slate-500">{{ exam.title }} ({{ exam.course_code }}) — Total Marks: <strong>{{ exam.total_marks }}</strong></p>
+    </div>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <form method="post">
+      {% csrf_token %}
+      {% if students_data %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b text-left text-slate-600">
+                <th class="pb-3 pr-4 font-semibold">Student ID</th>
+                <th class="pb-3 pr-4 font-semibold">Name</th>
+                <th class="pb-3 pr-4 font-semibold">Marks (out of {{ exam.total_marks }})</th>
+                <th class="pb-3 font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for sd in students_data %}
+              <tr class="border-b last:border-0 hover:bg-slate-50">
+                <td class="py-2.5 pr-4 text-slate-900">{{ sd.student.student_id }}</td>
+                <td class="py-2.5 pr-4 text-slate-900">{{ sd.student.first_name }} {{ sd.student.last_name }}</td>
+                <td class="py-2.5 pr-4">
+                  <input type="number" name="marks_{{ sd.student.student_id }}" value="{{ sd.marks|default_if_none:'' }}" min="0" max="{{ exam.total_marks }}" step="0.01" class="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-600 focus:ring-2 focus:ring-slate-200" placeholder="Marks">
+                </td>
+                <td class="py-2.5">
+                  {% if sd.marks is not None %}
+                    <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">Saved</span>
+                  {% else %}
+                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">Pending</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <button class="mt-4 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-900">Save Marks</button>
+      {% else %}
+        <div class="flex flex-col items-center py-8 text-center">
+          <p class="text-slate-500">No enrolled students found for this course.</p>
+          <p class="mt-1 text-xs text-slate-400">Ensure students are registered and approved for {{ exam.course_code }}.</p>
+        </div>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="mb-3 text-lg font-bold">All Entries</h2>
+    {% if grades %}
+      <div class="divide-y divide-slate-100">
+        {% for g in grades %}
+        <div class="flex items-center justify-between py-2 text-sm">
+          <span class="font-medium text-slate-900">{{ g.student_id }}</span>
+          <span class="text-slate-600">{{ g.marks_obtained }} / {{ exam.total_marks }} — {{ g.letter_grade }} ({{ g.grade_points }})</span>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-slate-500">No grades entered yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

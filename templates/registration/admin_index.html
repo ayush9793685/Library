@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-5">
+  <div class="flex items-center justify-between"><h1 class="text-3xl font-extrabold">Course Registration</h1><div class="flex gap-2"><a class="rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white" href="/registration/windows/add/">Add Window</a><a class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white" href="/registration/offerings/add/">Add Offering</a></div></div>
+  <div class="grid gap-5 lg:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="mb-2 font-bold">Registration Windows</h2>{% for w in windows %}<p class="text-sm">{{ w.name }}: {{ w.starts_at }} - {{ w.ends_at }} ({{ w.is_active|yesno:'Active,Inactive' }})</p>{% empty %}<p>No windows.</p>{% endfor %}</div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="mb-2 font-bold">Course Offerings</h2>{% for o in offerings %}<p class="text-sm">{% if o.course %}{{ o.course.code }} - {{ o.course.name }}{% else %}{{ o.course_code_text }}{% endif %} | {{ o.semester }} | cap {{ o.capacity }}</p>{% empty %}<p>No offerings.</p>{% endfor %}</div>
+  </div>
+  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="mb-2 font-bold">Pending Approvals</h2>{% for p in pending %}<div class="flex items-center justify-between border-b border-slate-100 py-2 text-sm"><span>{% if p.student %}{{ p.student.student_id }} ({{ p.student.first_name }} {{ p.student.last_name }}){% else %}{{ p.student_id_text }}{% endif %} -> {% if p.offering.course %}{{ p.offering.course.code }}{% else %}{{ p.offering.course_code_text }}{% endif %}</span><a class="text-emerald-700" href="/registration/registrations/{{ p.id }}/approve/">Approve</a></div>{% empty %}<p>No pending approvals.</p>{% endfor %}</div>
+</section>
+{% endblock %}

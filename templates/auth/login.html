@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block main_class %}w-full p-0 m-0 max-w-none{% endblock %}
+{% block content %}
+<section class="flex min-h-screen w-full items-center justify-center bg-gradient-to-b from-[#15508e] to-[#1e5e98] p-4 md:p-8">
+  <div class="w-full max-w-4xl">
+    <div class="mb-8 text-center">
+      <h1 class="text-4xl font-extrabold tracking-tight text-white md:text-5xl">StudentHub Portal</h1>
+      <p class="mt-2 text-blue-100">Modern Student Information Management</p>
+    </div>
+
+    <div class="grid overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-soft md:grid-cols-2">
+      <aside class="hidden border-r border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50 p-8 md:block">
+        <div class="flex h-full flex-col justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Welcome Back</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Manage student records, monitor activity, and keep academic data organized from one secure dashboard.</p>
+          </div>
+          <blockquote class="rounded-xl border border-blue-100 bg-white p-4 text-sm text-slate-700">
+            "Education is the passport to the future, for tomorrow belongs to those who prepare for it today."
+            <footer class="mt-2 text-right font-semibold text-slate-900">- Malcolm X</footer>
+          </blockquote>
+        </div>
+      </aside>
+
+      <div class="p-6 md:p-8">
+        <div class="mb-5 grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-center text-sm font-bold">
+          <a href="/accounts/login/" class="rounded-lg bg-white px-3 py-2 text-slate-900 shadow-sm">Log In</a>
+          <a href="/accounts/signup/" class="rounded-lg px-3 py-2 text-slate-500 hover:text-slate-900">Sign Up</a>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-900">Log In</h3>
+        <p class="mt-1 text-sm text-slate-500">Use your account credentials to continue.</p>
+
+        <form method="post" class="mt-6 space-y-5">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ form.non_field_errors|striptags }}</div>
+          {% endif %}
+
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-slate-700" for="{{ form.username.id_for_label }}">Username</label>
+            {{ form.username }}
+            {% if form.username.errors %}<p class="mt-1 text-xs text-red-600">{{ form.username.errors|striptags }}</p>{% endif %}
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-slate-700" for="{{ form.password.id_for_label }}">Password</label>
+            {{ form.password }}
+            {% if form.password.errors %}<p class="mt-1 text-xs text-red-600">{{ form.password.errors|striptags }}</p>{% endif %}
+          </div>
+
+          <div class="flex items-center justify-between text-sm">
+            <label class="inline-flex items-center gap-2 text-slate-600">
+              {{ form.remember_me }}
+              Remember me
+            </label>
+            <a class="font-semibold text-brand-700 hover:text-brand-900" href="/accounts/password_reset/">Forgot password?</a>
+          </div>
+
+          <button class="w-full rounded-xl bg-brand-700 px-4 py-3 text-base font-bold text-white transition hover:bg-brand-900">Log In</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

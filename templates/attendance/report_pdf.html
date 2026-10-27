@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Attendance PDF Report</title></head>
+<body style="font-family: Arial, sans-serif; margin: 24px;">
+  <h1>Attendance Report</h1>
+  <p>Print this page as PDF from browser.</p>
+  <table border="1" cellspacing="0" cellpadding="6" width="100%">
+    <thead><tr><th>Date</th><th>Course</th><th>Student</th><th>Status</th><th>Remarks</th></tr></thead>
+    <tbody>
+      {% for r in records %}
+      <tr><td>{{ r.session.session_date }}</td><td>{{ r.session.course.code }}</td><td>{{ r.student_id }}</td><td>{{ r.status|title }}</td><td>{{ r.remarks }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

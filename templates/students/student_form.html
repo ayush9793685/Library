@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto max-w-5xl">
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900">{{ title }}</h1>
+    <p class="mt-1 text-sm text-slate-600">Fill in student personal and academic information.</p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {% for field in form %}
+        <div {% if field.name == 'new_program_name' %}id="newProgramWrap"{% endif %} class="{% if field.name == 'profile_photo' %}md:col-span-2{% endif %}">
+          <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+          {% if field.errors %}<p class="mt-1 text-xs text-red-600">{{ field.errors|striptags }}</p>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-8 flex items-center justify-end gap-3">
+      <a href="/students/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</a>
+      <button class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">Save Student</button>
+    </div>
+  </form>
+</section>
+<script>
+  (function () {
+    var select = document.getElementById("id_program");
+    var wrap = document.getElementById("newProgramWrap");
+    if (!select || !wrap) return;
+    function toggle() {
+      var other = select.value === "__other__";
+      wrap.style.display = other ? "" : "none";
+      var input = wrap.querySelector("input");
+      if (input) input.required = other;
+    }
+    select.addEventListener("change", toggle);
+    toggle();
+  })();
+</script>
+{% endblock %}

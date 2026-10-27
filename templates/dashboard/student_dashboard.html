@@ -1,0 +1,87 @@
+{% extends 'base.html' %} {% block content %}
+<section class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Welcome, {{ student.first_name }}!</h1>
+            <p class="text-sm text-slate-500">{{ student.student_id }} &middot; {{ student.program.name|default:"—" }} &middot; Year {{ student.academic_year }}</p>
+        </div>
+        <a href="/students/me/" class="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white">My Profile</a>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-slate-500">Profile Completion</p>
+                <p class="mt-1 text-2xl font-extrabold text-slate-900">{{ completion }}%</p>
+            </div>
+            <div class="h-3 w-48 rounded-full bg-slate-100">
+                <div class="h-3 rounded-full bg-brand-700" style="width:{{ completion }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-sm text-slate-500">Outstanding Fees</p>
+            <p class="mt-2 text-3xl font-extrabold {% if outstanding_fees > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ outstanding_fees }}</p>
+            <p class="mt-1 text-xs text-slate-400">Paid {{ paid_fees }} of {{ expected_fees }}</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-sm text-slate-500">Notifications</p>
+            <p class="mt-2 text-3xl font-extrabold {% if unread_notifications > 0 %}text-brand-700{% else %}text-slate-900{% endif %}">{{ unread_notifications }}</p>
+            <p class="mt-1 text-xs text-slate-400">Unread notifications</p>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="text-lg font-bold text-slate-900">Quick Links</h2>
+        <div class="mt-3 flex flex-wrap gap-2 text-sm">
+            <a class="rounded-lg bg-brand-700 px-3 py-2 font-semibold text-white" href="/fees/">My Fees</a>
+            <a class="rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700" href="/helpdesk/">Helpdesk</a>
+            <a class="rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700" href="/notifications/">Announcements</a>
+            <a class="rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700" href="/students/me/">Edit Profile</a>
+        </div>
+    </div>
+
+    <div class="grid gap-5">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="mb-3 text-lg font-bold text-slate-900">Recent Activity</h2>
+            <div class="space-y-2 text-sm">
+                {% for a in activity %}
+                <div class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-slate-700">{{ a.timestamp|date:"d M Y, H:i" }} — {{ a.action|title }}</div>
+                {% empty %}
+                <p class="py-3 text-slate-500">No recent activity.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-5 lg:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900">Profile Summary</h2>
+            <div class="mt-3 space-y-2 text-sm">
+                <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Student ID</span><span class="font-medium text-slate-900">{{ student.student_id }}</span></div>
+                <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Registration No.</span><span class="font-medium text-slate-900">{{ student.registration_number }}</span></div>
+                <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Program</span><span class="font-medium text-slate-900">{{ student.program.name|default:"—" }}</span></div>
+                <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500">Academic Year</span><span class="font-medium text-slate-900">{{ student.academic_year }}</span></div>
+                <div class="flex justify-between pb-2"><span class="text-slate-500">Status</span><span class="font-medium {% if student.status == 'active' %}text-emerald-700{% else %}text-slate-900{% endif %}">{{ student.get_status_display }}</span></div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900">Support &amp; Tickets</h2>
+            <div class="mt-3 space-y-3">
+                <div class="flex items-center justify-between rounded-lg border border-slate-200 p-3">
+                    <div>
+                        <p class="text-sm font-medium text-slate-900">Open Tickets</p>
+                        <p class="text-xs text-slate-500">Issues awaiting response</p>
+                    </div>
+                    <span class="text-2xl font-extrabold {% if open_tickets > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ open_tickets }}</span>
+                </div>
+                <a href="/helpdesk/" class="block text-center rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">View Tickets</a>
+                <a href="/helpdesk/tickets/add/" class="block text-center rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white">Raise a Ticket</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
