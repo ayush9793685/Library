@@ -41,7 +41,7 @@ def record_payment(student, *, mode, reference="", paid_on=None, user=None, regi
     registration=True is used for the first month collected at registration: the 30 days
     were already set when the student was created, so the plan is not extended again.
     """
-    student = Student.objects.select_for_update().select_related("program").get(pk=student.pk)
+    student = Student.objects.select_for_update(of=("self",)).select_related("program").get(pk=student.pk)
     fee = check_can_pay(student) if not registration else student.monthly_fee
     paid_on = paid_on or timezone.localdate()
     previous_end = student.subscription_end
