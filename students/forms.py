@@ -171,7 +171,10 @@ class StudentForm(forms.ModelForm):
             auto_field.widget.attrs["readonly"] = True
             auto_field.widget.attrs["class"] += " bg-slate-100 text-slate-500"
             if self.is_new:
-                self.initial[auto_name] = next_value()
+                try:
+                    self.initial[auto_name] = next_value()
+                except Student.IdsExhausted:
+                    self.initial[auto_name] = ""
 
     class Meta:
         model = Student
@@ -196,12 +199,18 @@ class StudentForm(forms.ModelForm):
     def clean_student_id(self):
         if self.instance.pk:
             return self.instance.student_id
-        return Student.next_student_id()
+        try:
+            return Student.next_student_id()
+        except Student.IdsExhausted as exc:
+            raise forms.ValidationError(str(exc))
 
     def clean_registration_number(self):
         if self.instance.pk:
             return self.instance.registration_number
-        return Student.next_registration_number()
+        try:
+            return Student.next_registration_number()
+        except Student.IdsExhausted as exc:
+            raise forms.ValidationError(str(exc))
 
     def clean_rfid_uid(self):
         value = (self.cleaned_data.get("rfid_uid") or "").strip()

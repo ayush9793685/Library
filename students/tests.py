@@ -499,3 +499,94 @@ class LegacyDataTest(TestCase):
         self.assertEqual(self.client.get(f"/fees/receipt/{p.pk}/").status_code, 200)
         self.assertEqual(self.client.get("/fees/").status_code, 200)
         self.assertEqual(self.client.get("/reports/fees/?view=receipts&date_from=2024-01-01&date_to=2026-12-31").status_code, 200)
+
+
+class PrivateCloudinaryStorageTest(TestCase):
+    """The Cloudinary calls are mocked: only our own logic is checked here."""
+
+    def test_open_uses_private_download_api_with_split_public_id(self):
+        from unittest import mock
+
+        from sims.storage import PrivateCloudinaryStorage
+
+        fake_response = mock.MagicMock()
+        fake_response.read.return_value = b"%PDF-data"
+        fake_response.__enter__.return_value = fake_response
+        with mock.patch("cloudinary.utils.private_download_url", return_value="https://api.cloudinary.com/x") as dl, \
+                mock.patch("urllib.request.urlopen", return_value=fake_response) as op:
+            f = PrivateCloudinaryStorage()._open("image/aadhaar/2/AADHAR.pdf.pdf")
+        args, kwargs = dl.call_args
+        self.assertEqual(args[0], "aadhaar/2/AADHAR.pdf")
+        self.assertEqual(args[1], "pdf")
+        self.assertEqual(kwargs["type"], "authenticated")
+        self.assertEqual(kwargs["resource_type"], "image")
+        op.assert_called_once()
+        self.assertEqual(f.read(), b"%PDF-data")
+
+    def test_view_serves_file_through_django_not_a_redirect(self):
+        from unittest import mock
+
+        from django.core.files.base import ContentFile
+
+        from sims.storage import PrivateCloudinaryStorage
+
+        admin = make_admin("viewer")
+        self.client.force_login(admin)
+        prog = batch("Pratibha")
+        st = make_student_row(prog, seat=1)
+        Student.objects.filter(pk=st.pk).update(aadhaar_copy="image/aadhaar/2/AADHAR.pdf.pdf")
+        with mock.patch.object(PrivateCloudinaryStorage, "_open", return_value=ContentFile(b"%PDF-1", name="x.pdf")):
+            with mock.patch.object(Student._meta.get_field("aadhaar_copy"), "storage", PrivateCloudinaryStorage()):
+                r = self.client.post(f"/students/{st.pk}/aadhaar-copy/", {"password": "9793"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "application/pdf")
+        self.assertEqual(r["Cache-Control"], "no-store")
+
+
+class FourDigitIdTest(TestCase):
+    def setUp(self):
+        self.client.force_login(make_admin("ids"))
+        self.prog = batch("Pratibha")
+
+    def test_ids_start_at_0001_and_count_up(self):
+        a = create_student(self.client, self.prog)
+        b = create_student(self.client, self.prog)
+        self.assertEqual((a.student_id, a.registration_number), ("0001", "0001"))
+        self.assertEqual((b.student_id, b.registration_number), ("0002", "0002"))
+
+    def test_continues_after_legacy_short_ids(self):
+        s = make_student_row(self.prog)
+        Student.objects.filter(pk=s.pk).update(student_id="7", registration_number="7")
+        self.assertEqual(Student.next_student_id(), "0008")
+
+    def test_stops_at_1000_then_reuses_free_numbers(self):
+        s = make_student_row(self.prog)
+        Student.objects.filter(pk=s.pk).update(student_id="1000", registration_number="1000")
+        self.assertEqual(Student.next_student_id(), "0001")  # 0001 is free, so it is reused
+        today = timezone.localdate()
+        full = [
+            Student(student_id=str(n).zfill(4), registration_number=str(n).zfill(4), first_name="A", last_name="B",
+                    enrollment_date=today, academic_year="2026")
+            for n in range(1, 1000)
+        ]
+        Student.objects.bulk_create(full)
+        with self.assertRaises(Student.IdsExhausted):
+            Student.next_student_id()
+
+
+class PadLegacyIdsMigrationTest(TestCase):
+    def test_short_ids_are_padded_everywhere(self):
+        import importlib
+
+        from django.apps import apps as real_apps
+
+        from fees.models import Payment
+
+        mig = importlib.import_module("students.migrations.0006_four_digit_ids")
+        s = make_student_row(batch("Pratibha"))
+        Student.objects.filter(pk=s.pk).update(student_id="1", registration_number="1")
+        Payment.objects.create(student_id=s.pk, student_id_text="1", amount_paid=500, paid_on=timezone.localdate())
+        mig.pad_ids(real_apps, None)
+        s.refresh_from_db()
+        self.assertEqual((s.student_id, s.registration_number), ("0001", "0001"))
+        self.assertEqual(Payment.objects.get(student=s).student_id_text, "0001")

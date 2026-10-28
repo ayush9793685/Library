@@ -110,19 +110,28 @@ class Student(models.Model):
     def __str__(self):
         return f"{self.student_id} - {self.first_name} {self.last_name}"
 
+    ID_WIDTH = 4
+    ID_MAX = 1000
+
+    class IdsExhausted(Exception):
+        """All numbers from 0001 to 1000 are in use."""
+
     @classmethod
     def _next_value(cls, field_name):
-        best = None
+        """Next number as a 4-digit code (0001 ... 1000). After 1000, the lowest unused number is reused."""
+        used = set()
         for value in cls.objects.values_list(field_name, flat=True):
-            match = re.match(r"^(.*?)(\d+)$", value or "")
-            if match:
-                number = int(match.group(2))
-                if best is None or number > best[0]:
-                    best = (number, match.group(1), len(match.group(2)))
-        if best is None:
-            return "1"
-        number, prefix, width = best
-        return f"{prefix}{str(number + 1).zfill(width)}"
+            if value and value.isdigit():
+                used.add(int(value))
+        highest = max(used, default=0)
+        if highest < cls.ID_MAX:
+            number = highest + 1
+        else:
+            free = [n for n in range(1, cls.ID_MAX + 1) if n not in used]
+            if not free:
+                raise cls.IdsExhausted(f"All {cls.ID_MAX} numbers are in use.")
+            number = free[0]
+        return str(number).zfill(cls.ID_WIDTH)
 
     @classmethod
     def next_student_id(cls):

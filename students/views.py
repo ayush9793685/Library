@@ -30,6 +30,17 @@ from .models import Address, ContactInformation, EmergencyContact, Student
 User = get_user_model()
 
 
+import logging  # noqa: E402
+
+logger = logging.getLogger(__name__)
+
+
+def _guess_type(name):
+    import mimetypes
+
+    return mimetypes.guess_type(name)[0] or "application/octet-stream"
+
+
 def _is_admin(user):
     return user.is_authenticated and (user.is_staff or user.role == "admin")
 
@@ -338,17 +349,25 @@ def aadhaar_copy_view(request, pk):
         if expected and hmac.compare_digest(supplied.encode(), expected.encode()):
             request.session.pop(key, None)
             create_audit_log(user=request.user, action="aadhaar_copy_viewed", object_modified=student.student_id)
-            storage = student.aadhaar_copy.storage
+            copy = student.aadhaar_copy
             try:
-                url = storage.url(student.aadhaar_copy.name)  # signed, short-lived (Cloudinary)
+                handle = copy.open("rb")
+            except NotImplementedError:
+                handle = None
+            except Exception:
+                logger.exception("Could not read the Aadhaar copy of %s directly", student.student_id)
+                handle = None
+            if handle is not None:
+                response = FileResponse(handle, content_type=_guess_type(copy.name))
+                response["Cache-Control"] = "no-store"
+                response["X-Content-Type-Options"] = "nosniff"
+                return response
+            try:
+                return HttpResponseRedirect(copy.storage.url(copy.name))  # signed, short-lived (Cloudinary)
             except ValueError:
-                url = None
-            if url:
-                return HttpResponseRedirect(url)
-            response = FileResponse(student.aadhaar_copy.open("rb"))
-            response["Cache-Control"] = "no-store"
-            response["X-Content-Type-Options"] = "nosniff"
-            return response
+                return render(request, "students/aadhaar_password.html", {
+                    "student": student, "error": "The file could not be opened right now. Please try again.",
+                })
         data["n"] = data.get("n", 0) + 1
         if data["n"] >= int(getattr(settings, "AADHAAR_VIEW_MAX_ATTEMPTS", 5)):
             data["until"] = timezone.now().timestamp() + int(getattr(settings, "AADHAAR_VIEW_LOCK_SECONDS", 900))

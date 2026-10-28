@@ -119,6 +119,27 @@ class PrivateCloudinaryStorage(CloudinaryMediaStorage):
         )
         return url
 
+    def _open(self, name, mode="rb"):
+        """Fetch the original through Cloudinary's authenticated download API (works even when the
+        account blocks public PDF delivery) and hand it back as an in-memory file."""
+        import time
+        import urllib.request
+
+        import cloudinary.utils
+        from django.core.files.base import ContentFile
+
+        resource_type, _, public = name.partition("/")
+        fmt = None
+        if resource_type != "raw":
+            public, dot_ext = os.path.splitext(public)
+            fmt = dot_ext.lstrip(".") or None
+        link = cloudinary.utils.private_download_url(
+            public, fmt or "", resource_type=resource_type, type="authenticated",
+            expires_at=int(time.time()) + 300,
+        )
+        with urllib.request.urlopen(link, timeout=20) as response:  # nosec - fixed Cloudinary API host
+            return ContentFile(response.read(), name=name)
+
     def delete(self, name):
         import cloudinary.uploader
 
