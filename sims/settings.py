@@ -221,6 +221,8 @@ TOTAL_SEATS = int(os.getenv("TOTAL_SEATS", "80"))
 # Password an admin must enter to open a student's Aadhaar copy. Set the
 # AADHAAR_VIEW_PASSWORD environment variable to change it without touching code.
 AADHAAR_VIEW_PASSWORD = os.getenv("AADHAAR_VIEW_PASSWORD", "9793")
+# Needed to permanently delete a student or a payment record (same value unless you set DELETE_PASSWORD).
+DELETE_PASSWORD = os.getenv("DELETE_PASSWORD", AADHAAR_VIEW_PASSWORD)
 # Key used to encrypt Aadhaar numbers. Set AADHAAR_ENCRYPTION_KEY (any long random
 # string) in production; if unset it is derived from DJANGO_SECRET_KEY.
 AADHAAR_ENCRYPTION_KEY = os.getenv("AADHAAR_ENCRYPTION_KEY", "")

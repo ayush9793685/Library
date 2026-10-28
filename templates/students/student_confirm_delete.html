@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
 <section class="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-  <h1 class="mb-2 text-2xl font-extrabold">Delete {{ student.first_name }} {{ student.last_name }}?</h1>
-  {% if has_history %}
-    <p class="mb-4 text-sm text-slate-700">This student has payment records, which must be kept. To close the account, use <strong>Deactivate</strong> instead: it frees the seat and disables the RFID card but keeps the history.</p>
-    <a class="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white" href="{% url 'students:deactivate' student.pk %}">Go to Deactivate</a>
+  <h1 class="mb-2 text-2xl font-extrabold">Delete {{ student.first_name }} {{ student.last_name }} ({{ student.student_id }})?</h1>
+  <p class="mb-2 text-sm text-red-700">This permanently removes the student and everything attached: <strong>{{ payments }}</strong> payment record(s), <strong>{{ attendance }}</strong> attendance record(s), contact details and the Aadhaar copy. The seat becomes free. It cannot be undone.</p>
+  <p class="mb-4 text-sm text-slate-700">To close an account but keep the history, use <a class="font-semibold underline" href="{% url 'students:deactivate' student.pk %}">Deactivate</a> instead.</p>
+  {% if error %}<p class="mb-3 rounded bg-rose-100 p-2 text-sm font-semibold text-rose-700">{{ error }}</p>{% endif %}
+  <form method="post">{% csrf_token %}
+    <label class="mb-1 block text-sm font-semibold">Type the student ID ({{ student.student_id }}) to confirm</label>
+    <input type="text" name="confirm_id" required autocomplete="off" class="mb-3">
+    <label class="mb-1 block text-sm font-semibold">Admin password</label>
+    <input type="password" name="password" required autocomplete="off" class="mb-4">
+    <button class="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white">Delete permanently</button>
     <a class="ml-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'students:detail' student.pk %}">Cancel</a>
-  {% else %}
-    <p class="mb-4 text-sm text-slate-700">This student has no payments. Deleting removes the record permanently.</p>
-    <form method="post">{% csrf_token %}
-      <button class="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white">Delete permanently</button>
-      <a class="ml-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'students:detail' student.pk %}">Cancel</a>
-    </form>
-  {% endif %}
+  </form>
 </section>
 {% endblock %}

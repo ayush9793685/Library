@@ -187,19 +187,39 @@ def student_edit(request, pk):
 
 @login_required
 def student_delete(request, pk):
+    """Permanently delete a student with everything attached (payments, attendance, Aadhaar copy)."""
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
     student = get_object_or_404(Student, pk=pk)
-    has_history = student.payments.exists()
+    payments = student.payments.count()
+    attendance = student.attendance_records.count()
+    error = ""
     if request.method == "POST":
-        if has_history:
-            messages.error(request, "This student has payment records, so the record cannot be deleted. Use Deactivate instead.")
-            return redirect("students:detail", pk=student.pk)
-        sid = student.student_id
-        student.delete()
-        create_audit_log(user=request.user, action="student_delete", object_modified=sid)
-        return redirect("students:list")
-    return render(request, "students/student_confirm_delete.html", {"student": student, "has_history": has_history})
+        if request.POST.get("confirm_id", "").strip().upper() != student.student_id.upper():
+            error = "Type the student ID exactly to confirm."
+        elif request.POST.get("password", "") != str(settings.DELETE_PASSWORD):
+            error = "Wrong password."
+            create_audit_log(user=request.user, action="student_delete_wrong_password", object_modified=student.student_id)
+        else:
+            sid, name = student.student_id, f"{student.first_name} {student.last_name}".strip()
+            copy = student.aadhaar_copy
+            with transaction.atomic():
+                seats.lock_seat_rows()
+                student.delete()
+            if copy:
+                try:
+                    copy.storage.delete(copy.name)
+                except Exception:
+                    pass
+            create_audit_log(
+                user=request.user, action="student_deleted", object_modified=sid,
+                old_value=f"{name}; {payments} payments, {attendance} attendance rows removed",
+            )
+            messages.success(request, f"Student {sid} and all related records were deleted permanently.")
+            return redirect("students:list")
+    return render(request, "students/student_confirm_delete.html", {
+        "student": student, "payments": payments, "attendance": attendance, "error": error,
+    })
 
 
 @login_required

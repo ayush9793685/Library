@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Sum
@@ -7,11 +8,12 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from audits.utils import create_audit_log
 from students.models import Student
 
 from .forms import CancelPaymentForm, PaymentForm
 from .models import Payment
-from .services import PaymentError, cancel_payment, record_payment
+from .services import PaymentError, cancel_payment, delete_payment, record_payment
 
 
 def _is_admin(user):
@@ -115,6 +117,28 @@ def payment_cancel(request, pk):
             messages.success(request, f"Receipt {payment.receipt_number} cancelled.")
             return redirect("fees:receipt", pk=payment.pk)
     return render(request, "fees/form.html", {"form": form, "title": f"Cancel receipt {payment.receipt_number}"})
+
+
+@login_required
+def payment_delete(request, pk):
+    """Permanently delete one payment record (admin only, password required)."""
+    if not _is_admin(request.user):
+        return HttpResponseForbidden("Not allowed")
+    payment = get_object_or_404(Payment, pk=pk)
+    error = ""
+    if request.method == "POST":
+        if request.POST.get("password", "") != str(settings.DELETE_PASSWORD):
+            error = "Wrong password."
+            create_audit_log(user=request.user, action="payment_delete_wrong_password", object_modified=payment.receipt_number)
+        else:
+            try:
+                delete_payment(payment, user=request.user)
+            except PaymentError as exc:
+                error = str(exc)
+            else:
+                messages.success(request, f"Payment {payment.receipt_number} deleted permanently.")
+                return redirect("fees:index")
+    return render(request, "fees/payment_delete.html", {"payment": payment, "error": error})
 
 
 @login_required

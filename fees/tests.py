@@ -148,3 +148,53 @@ class PaymentTests(TestCase):
 
     def test_legacy_fee_structure_pages_are_gone(self):
         self.assertEqual(self.client.get("/fees/structures/add/").status_code, 404)
+
+
+@override_settings(PRIVATE_MEDIA_ROOT=PRIVATE)
+class PaymentDeleteTests(TestCase):
+    def setUp(self):
+        self.admin = make_admin()
+        self.client.force_login(self.admin)
+        self.pratibha = batch("Pratibha")
+
+    def _expire(self, s, days):
+        s.subscription_end = timezone.now() - timedelta(days=days)
+        s.status = Student.Status.INACTIVE
+        s.save()
+
+    def _paid_twice(self):
+        s = make_student_row(self.pratibha, seat=1)
+        self._expire(s, 40)
+        p1 = record_payment(s, mode="cash", user=self.admin)
+        s.refresh_from_db()
+        end1 = s.subscription_end
+        self._expire(s, 3)
+        p2 = record_payment(s, mode="cash", user=self.admin)
+        s.refresh_from_db()
+        return s, p1, p2, end1
+
+    def test_wrong_password_keeps_payment(self):
+        s, p1, p2, *_ = self._paid_twice()
+        self.client.post(f"/fees/receipt/{p2.pk}/delete/", {"password": "nope"})
+        self.assertTrue(Payment.objects.filter(pk=p2.pk).exists())
+
+    def test_delete_latest_restores_plan_end(self):
+        s, p1, p2, end1 = self._paid_twice()
+        r = self.client.post(f"/fees/receipt/{p2.pk}/delete/", {"password": "9793"})
+        self.assertEqual(r.status_code, 302)
+        self.assertFalse(Payment.objects.filter(pk=p2.pk).exists())
+        s.refresh_from_db()
+        self.assertEqual(s.subscription_end, p2.previous_plan_end)
+
+    def test_cannot_delete_older_while_newer_exists(self):
+        s, p1, p2, *_ = self._paid_twice()
+        r = self.client.post(f"/fees/receipt/{p1.pk}/delete/", {"password": "9793"})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(Payment.objects.filter(pk=p1.pk).exists())
+
+    def test_non_admin_forbidden(self):
+        s, p1, p2, *_ = self._paid_twice()
+        self.client.logout()
+        u = User.objects.create_user(username="stu", password="x", role="student")
+        self.client.force_login(u)
+        self.assertEqual(self.client.post(f"/fees/receipt/{p2.pk}/delete/", {"password": "9793"}).status_code, 403)

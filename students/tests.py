@@ -318,10 +318,25 @@ class RegistrationFlowTest(TestCase):
         with self.assertRaises(PaymentError):
             check_can_pay(s)
 
-    def test_delete_blocked_when_payments_exist(self):
+    def test_student_delete_needs_id_and_password(self):
         s = create_student(self.client, self.pratibha)
-        self.client.post(f"/students/{s.pk}/delete/")
-        self.assertTrue(Student.objects.filter(pk=s.pk).exists())
+        for data in ({"confirm_id": "WRONG", "password": "9793"}, {"confirm_id": s.student_id, "password": "bad"}):
+            self.client.post(f"/students/{s.pk}/delete/", data)
+            self.assertTrue(Student.objects.filter(pk=s.pk).exists())
+
+    def test_student_delete_removes_everything_and_frees_seat(self):
+        from audits.models import AuditLog
+        from fees.models import Payment
+        s = create_student(self.client, self.pratibha, collect_fee="on", payment_mode="cash")
+        seat = s.seat_number
+        self.assertTrue(Payment.objects.filter(student=s).exists())
+        r = self.client.post(f"/students/{s.pk}/delete/", {"confirm_id": s.student_id.lower(), "password": "9793"})
+        self.assertEqual(r.status_code, 302)
+        self.assertFalse(Student.objects.filter(pk=s.pk).exists())
+        self.assertFalse(Payment.objects.filter(student_id=s.pk).exists())
+        self.assertTrue(AuditLog.objects.filter(action="student_deleted").exists())
+        again = create_student(self.client, self.pratibha)
+        self.assertEqual(again.seat_number, seat)
 
     def test_old_toggle_status_urls_are_gone(self):
         s = create_student(self.client, self.pratibha)

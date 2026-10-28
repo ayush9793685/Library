@@ -24,6 +24,7 @@
     {% if is_admin %}
       {% if payment.student %}<a class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'students:detail' payment.student.pk %}">Student</a>{% endif %}
       {% if not payment.is_cancelled %}<a class="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700" href="{% url 'fees:payment_cancel' payment.pk %}">Cancel receipt</a>{% endif %}
+      {% if request.user.is_staff or request.user.role == "admin" %}<a class="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white" href="{% url 'fees:payment_delete' payment.pk %}">Delete record</a>{% endif %}
     {% endif %}
     <a class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'fees:index' %}">Back to fees</a>
   </div>

@@ -99,3 +99,21 @@ def cancel_payment(payment, *, reason, user=None):
         old_value=str(payment.amount_paid), new_value=reason[:200],
     )
     return payment
+
+
+def delete_payment(payment, *, user=None):
+    """Permanently remove a payment record. If it is the latest renewal, the plan end date steps back."""
+    student = payment.student
+    if student and payment.extends_plan and not payment.is_cancelled:
+        newer = Payment.objects.filter(student=student, is_cancelled=False, extends_plan=True, pk__gt=payment.pk).exists()
+        if newer:
+            raise PaymentError("Delete the student's newer payment first, so the plan dates stay correct.")
+    label = f"{payment.receipt_number} {student.student_id if student else ''}".strip()
+    amount = str(payment.amount_paid)
+    with transaction.atomic():
+        if student and payment.extends_plan and not payment.is_cancelled and payment.previous_plan_end:
+            student.subscription_end = payment.previous_plan_end
+            student.save(update_fields=["subscription_end", "updated_at"])
+        payment.delete()
+        Student.expire_overdue()
+    create_audit_log(user=user, action="payment_deleted", object_modified=label, old_value=amount)

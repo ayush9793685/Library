@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h1 class="mb-2 text-2xl font-extrabold">Delete payment {{ payment.receipt_number }}?</h1>
+  <p class="mb-2 text-sm text-slate-700">{{ payment.student_name }} &middot; Rs {{ payment.amount_paid }} &middot; {{ payment.payment_date }}</p>
+  <p class="mb-4 text-sm text-red-700">This removes the record permanently and cannot be undone. If it was the latest renewal, the student's plan end date goes back to what it was before this payment. If you only want to void a receipt and keep it on file, use <strong>Cancel receipt</strong> instead.</p>
+  {% if error %}<p class="mb-3 rounded bg-rose-100 p-2 text-sm font-semibold text-rose-700">{{ error }}</p>{% endif %}
+  <form method="post">{% csrf_token %}
+    <label class="mb-1 block text-sm font-semibold">Admin password</label>
+    <input type="password" name="password" required autocomplete="off" class="mb-4">
+    <button class="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white">Delete permanently</button>
+    <a class="ml-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'fees:receipt' payment.pk %}">Keep it</a>
+  </form>
+</section>
+{% endblock %}
