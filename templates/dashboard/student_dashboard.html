@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Welcome, {{ student.first_name }}!</h1>
-            <p class="text-sm text-slate-500">{{ student.student_id }} &middot; {{ student.program.name|default:"—" }} &middot; Year {{ student.academic_year }}</p>
+            <p class="text-sm text-slate-500">{{ student.student_id }} &middot; {{ student.program.name|default:"—" }} &middot; Seat {{ student.seat_number|default:"—" }}</p>
         </div>
         <a href="/students/me/" class="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white">My Profile</a>
     </div>
@@ -24,7 +24,7 @@
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-sm text-slate-500">Outstanding Fees</p>
             <p class="mt-2 text-3xl font-extrabold {% if outstanding_fees > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ outstanding_fees }}</p>
-            <p class="mt-1 text-xs text-slate-400">Paid {{ paid_fees }} of {{ expected_fees }}</p>
+            <p class="mt-1 text-xs text-slate-400">Monthly fee {{ expected_fees }} &middot; total paid {{ paid_fees }}</p>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-sm text-slate-500">Notifications</p>

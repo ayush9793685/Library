@@ -6,7 +6,8 @@ app_name = "fees"
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("structures/add/", views.structure_create, name="structure_create"),
     path("students/search/", views.student_search, name="student_search"),
     path("payments/add/", views.payment_create, name="payment_create"),
+    path("receipt/<int:pk>/", views.receipt, name="receipt"),
+    path("receipt/<int:pk>/cancel/", views.payment_cancel, name="payment_cancel"),
 ]

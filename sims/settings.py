@@ -30,6 +30,8 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGIN
 if not DEBUG:
     # Vercel terminates TLS in front of Django.
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 
 # Application definition
@@ -54,6 +56,7 @@ INSTALLED_APPS = [
     'documents',
     'notifications_center',
     'helpdesk',
+    'attendance',
 ]
 
 MIDDLEWARE = [
@@ -136,7 +139,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
@@ -162,6 +165,12 @@ STORAGES = {
         else "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    # Private documents (Aadhaar copies): never publicly addressable.
+    "private": {
+        "BACKEND": "sims.storage.PrivateCloudinaryStorage"
+        if os.getenv("CLOUDINARY_URL")
+        else "sims.storage.PrivateLocalStorage",
+    },
 }
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -202,7 +211,25 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 4 * 1024 * 1024
 # Set to None for the normal one-month subscription.
 SUBSCRIPTION_TEST_SECONDS = None
 
-# A deactivated student shows this fixed amount as outstanding until reactivated.
-DEACTIVATED_OUTSTANDING = 1000
+# Library rules ---------------------------------------------------------------
+# A paid plan lasts this many days (also used for the first 30 days at registration).
+PLAN_DAYS = 30
+# Physical seats in the library (numbered 1..TOTAL_SEATS).
+TOTAL_SEATS = int(os.getenv("TOTAL_SEATS", "80"))
+
+# Aadhaar protection -----------------------------------------------------------
+# Password an admin must enter to open a student's Aadhaar copy. Set the
+# AADHAAR_VIEW_PASSWORD environment variable to change it without touching code.
+AADHAAR_VIEW_PASSWORD = os.getenv("AADHAAR_VIEW_PASSWORD", "9793")
+# Key used to encrypt Aadhaar numbers. Set AADHAAR_ENCRYPTION_KEY (any long random
+# string) in production; if unset it is derived from DJANGO_SECRET_KEY.
+AADHAAR_ENCRYPTION_KEY = os.getenv("AADHAAR_ENCRYPTION_KEY", "")
+# Reject Aadhaar numbers that fail the official Verhoeff check digit.
+AADHAAR_VERIFY_CHECKSUM = os.getenv("AADHAAR_VERIFY_CHECKSUM", "True") == "True"
+# Aadhaar copies are kept OUT of the public MEDIA folder.
+PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
+AADHAAR_COPY_MAX_MB = 5
+AADHAAR_VIEW_MAX_ATTEMPTS = 5
+AADHAAR_VIEW_LOCK_SECONDS = 15 * 60
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -3,7 +3,9 @@
 <section class="mx-auto max-w-5xl">
   <div class="mb-6">
     <h1 class="text-3xl font-bold tracking-tight text-slate-900">{{ title }}</h1>
-    <p class="mt-1 text-sm text-slate-600">Fill in student personal and academic information.</p>
+    <p class="mt-1 text-sm text-slate-600">
+      {% if is_new %}Choose the batch: the fee and a fixed seat are filled in automatically.{% else %}Update the student's details.{% endif %}
+    </p>
   </div>
 
   <form method="post" enctype="multipart/form-data" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
@@ -13,12 +15,25 @@
       <div class="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
     {% endif %}
 
+    <div class="mb-5 grid gap-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-3">
+      {% for b in batch_info %}
+        <div><span class="font-bold">{{ b.name }}</span> &middot; {{ b.timing }}<br>Rs. {{ b.fee }}/month</div>
+      {% endfor %}
+    </div>
+
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       {% for field in form %}
-        <div {% if field.name == 'new_program_name' %}id="newProgramWrap"{% endif %} class="{% if field.name == 'profile_photo' %}md:col-span-2{% endif %}">
-          <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-slate-700">{{ field.label }}</label>
-          {{ field }}
-          {% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+        {% if field.name == "collect_fee" %}<div class="md:col-span-2 border-t border-slate-200 pt-4 text-sm font-semibold text-slate-700">First month payment</div>{% endif %}
+        <div id="wrap_{{ field.name }}" class="{% if field.name == 'profile_photo' or field.name == 'confirm_batch_change' or field.name == 'collect_fee' %}md:col-span-2{% endif %}">
+          {% if field.field.widget.input_type == "checkbox" %}
+            <label class="flex items-start gap-2 text-sm font-medium text-slate-700">
+              {{ field }} <span>{{ field.label }}{% if field.help_text %}<span class="block text-xs font-normal text-slate-500">{{ field.help_text }}</span>{% endif %}</span>
+            </label>
+          {% else %}
+            <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-slate-700">{{ field.label }}{% if field.field.required %}<span class="text-rose-600">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+          {% endif %}
           {% if field.errors %}<p class="mt-1 text-xs text-red-600">{{ field.errors|striptags }}</p>{% endif %}
         </div>
       {% endfor %}
@@ -32,17 +47,39 @@
 </section>
 <script>
   (function () {
-    var select = document.getElementById("id_program");
-    var wrap = document.getElementById("newProgramWrap");
-    if (!select || !wrap) return;
-    function toggle() {
-      var other = select.value === "__other__";
-      wrap.style.display = other ? "" : "none";
-      var input = wrap.querySelector("input");
-      if (input) input.required = other;
+    var batch = document.getElementById("id_program");
+    var fee = document.getElementById("id_monthly_fee");
+    if (batch && fee) {
+      var map = {};
+      (batch.getAttribute("data-fees") || "").split(",").forEach(function (pair) {
+        var p = pair.split(":"); if (p.length === 2) map[p[0]] = p[1];
+      });
+      // Choosing a batch fills in that batch's fee (admins may then edit it for this student).
+      batch.addEventListener("change", function () {
+        if (map[batch.value] !== undefined && !fee.disabled) fee.value = map[batch.value];
+      });
+      if (!fee.value && map[batch.value] !== undefined) fee.value = map[batch.value];
     }
-    select.addEventListener("change", toggle);
-    toggle();
+    var collect = document.getElementById("id_collect_fee");
+    var mode = document.getElementById("id_payment_mode");
+    var ref = document.getElementById("id_payment_reference");
+    function togglePay() {
+      if (!collect || !mode || !ref) return;
+      var on = collect.checked;
+      document.getElementById("wrap_payment_mode").style.display = on ? "" : "none";
+      document.getElementById("wrap_payment_reference").style.display = (on && mode.value === "upi") ? "" : "none";
+    }
+    if (collect) { collect.addEventListener("change", togglePay); }
+    if (mode) { mode.addEventListener("change", togglePay); }
+    togglePay();
+    var confirmWrap = document.getElementById("wrap_confirm_batch_change");
+    if (confirmWrap && batch) {
+      var original = batch.value;
+      function toggleConfirm() { confirmWrap.style.display = (batch.value !== original) ? "" : "none"; }
+      batch.addEventListener("change", toggleConfirm);
+      // Keep it visible after a failed save so the message can be read.
+      if (!confirmWrap.querySelector(".text-red-600")) toggleConfirm();
+    }
   })();
 </script>
 {% endblock %}

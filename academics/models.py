@@ -12,17 +12,36 @@ class Department(models.Model):
 
 
 class Program(models.Model):
+    """A library batch (Pratibha, Pragati, Sankalp ...)."""
+
+    class Shift(models.TextChoices):
+        MORNING = "morning", "Morning shift"
+        AFTERNOON = "afternoon", "Afternoon shift"
+        FULL_DAY = "full_day", "Full day"
+
     department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="programs")
     name = models.CharField(max_length=120)
     code = models.CharField(max_length=20, unique=True)
     duration_semesters = models.PositiveSmallIntegerField(default=8)
     is_active = models.BooleanField(default=True)
+    # Monthly fee for the batch. A student may have a custom fee instead.
+    monthly_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Timings are shown to users; `shift` decides which batches may share a seat.
+    shift = models.CharField(max_length=20, choices=Shift.choices, default=Shift.FULL_DAY)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ("department", "name")
 
     def __str__(self):
         return self.name
+
+    @property
+    def timing_display(self):
+        if self.start_time and self.end_time:
+            return f"{self.start_time.strftime('%I:%M %p').lstrip('0')} - {self.end_time.strftime('%I:%M %p').lstrip('0')}"
+        return ""
 
 
 class Course(models.Model):

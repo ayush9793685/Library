@@ -93,6 +93,14 @@
     form p {
       margin: 0;
     }
+    /* Print: hide the menus so reports and receipts print cleanly. */
+    @media print {
+      nav, aside, .no-print { display: none !important; }
+      body { background: #fff !important; }
+      main { max-width: none !important; padding: 0 !important; }
+      main > div { display: block !important; }
+      .overflow-x-auto { overflow: visible !important; }
+    }
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900">

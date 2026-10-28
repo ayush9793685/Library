@@ -12,5 +12,8 @@ urlpatterns = [
     path("<int:pk>/", views.student_detail, name="detail"),
     path("<int:pk>/edit/", views.student_edit, name="edit"),
     path("<int:pk>/delete/", views.student_delete, name="delete"),
-    path("<int:pk>/status/<str:target>/", views.student_toggle_status, name="toggle_status"),
+    path("<int:pk>/deactivate/", views.student_deactivate, name="deactivate"),
+    path("<int:pk>/seat/", views.seat_change, name="seat_change"),
+    path("<int:pk>/aadhaar-copy/", views.aadhaar_copy_view, name="aadhaar_copy"),
+    path("seats/", views.seat_overview, name="seat_map"),
 ]

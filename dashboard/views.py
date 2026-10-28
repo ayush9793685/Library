@@ -6,7 +6,7 @@ from django.shortcuts import redirect, render
 
 from academics.models import Program
 from audits.models import AuditLog
-from fees.models import FeeStructure, Payment
+from fees.models import Payment
 from helpdesk.models import Ticket
 from notifications_center.models import Notification
 from registration.models import CourseRegistration
@@ -25,6 +25,7 @@ def home(request):
         total = Student.objects.count()
         active = Student.objects.filter(status=Student.Status.ACTIVE).count()
         inactive = Student.objects.filter(status=Student.Status.INACTIVE).count()
+        deactivated = Student.objects.filter(status=Student.Status.DEACTIVATED).count()
         by_program = list(Student.objects.values("program__name").annotate(total=Count("id")).order_by("program__name"))
         by_year = list(Student.objects.values("academic_year").annotate(total=Count("id")).order_by("academic_year"))
         recent = Student.objects.select_related("program").order_by("-created_at")[:5]
@@ -41,6 +42,7 @@ def home(request):
                 "total": total,
                 "active": active,
                 "inactive": inactive,
+                "deactivated": deactivated,
                 "by_program": by_program,
                 "by_year": by_year,
                 "recent": recent,
@@ -63,11 +65,10 @@ def home(request):
 
     activity = AuditLog.objects.filter(user=request.user)[:10]
 
-    expected_fees = FeeStructure.objects.filter(
-        academic_year=student.academic_year,
-    ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
-    paid_fees = Payment.objects.filter(student=student).aggregate(total=Sum("amount_paid"))["total"] or Decimal("0")
-    outstanding_fees = max(expected_fees - paid_fees, Decimal("0"))
+    # One monthly fee (batch fee or custom). Nothing is due while the plan is paid up.
+    expected_fees = student.monthly_fee
+    paid_fees = Payment.objects.filter(student=student, is_cancelled=False).aggregate(total=Sum("amount_paid"))["total"] or Decimal("0")
+    outstanding_fees = Decimal("0") if student.payment_status in ("Paid", "Deactivated") else expected_fees
 
     active_registrations = CourseRegistration.objects.filter(
         student=student,

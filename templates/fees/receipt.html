@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>@media print { aside, nav, header, .no-print { display: none !important; } body { background: #fff !important; } .receipt { box-shadow: none !important; border: 1px solid #000 !important; } }</style>
+<section class="mx-auto max-w-lg">
+  <div class="receipt rounded-2xl border border-slate-300 bg-white p-6 shadow-sm">
+    <div class="mb-4 text-center">
+      <h1 class="text-xl font-extrabold">Payment Receipt</h1>
+      <p class="text-sm text-slate-500">Receipt No. <strong>{{ payment.receipt_number }}</strong></p>
+      {% if payment.is_cancelled %}<p class="mt-2 rounded bg-rose-100 p-2 text-sm font-bold text-rose-700">CANCELLED - {{ payment.cancel_reason }}</p>{% endif %}
+    </div>
+    <dl class="space-y-1.5 text-sm">
+      <div class="flex justify-between"><dt class="text-slate-500">Date</dt><dd>{{ payment.paid_on|date:"d M Y" }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Student</dt><dd>{{ payment.student_name|default:"-" }}{% if payment.student %} ({{ payment.student.student_id }}){% endif %}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Batch</dt><dd>{{ payment.student.program.name|default:"-" }} {% if payment.student.program.timing_display %}({{ payment.student.program.timing_display }}){% endif %}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Seat</dt><dd>{{ payment.student.seat_number|default:"-" }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Plan period</dt><dd>{{ payment.period_start|date:"d M Y" }} to {{ payment.period_end|date:"d M Y" }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Payment mode</dt><dd>{{ payment.get_payment_mode_display }}{% if payment.reference %} ({{ payment.reference }}){% endif %}</dd></div>
+      <div class="flex justify-between border-t pt-2 text-base font-bold"><dt>Amount paid</dt><dd>Rs. {{ payment.amount_paid|floatformat:"-2" }}</dd></div>
+    </dl>
+    <p class="mt-4 text-center text-xs text-slate-400">Collected by {{ payment.recorded_by.username|default:"-" }}</p>
+  </div>
+  <div class="no-print mt-4 flex flex-wrap gap-2">
+    <button onclick="window.print()" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Print Receipt</button>
+    {% if is_admin %}
+      {% if payment.student %}<a class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'students:detail' payment.student.pk %}">Student</a>{% endif %}
+      {% if not payment.is_cancelled %}<a class="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700" href="{% url 'fees:payment_cancel' payment.pk %}">Cancel receipt</a>{% endif %}
+    {% endif %}
+    <a class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'fees:index' %}">Back to fees</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-4">
+  <h1 class="text-3xl font-extrabold">Reports</h1>
+  <p class="text-sm text-slate-500">Every report can be downloaded as Excel or PDF, or printed.</p>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <a class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:bg-slate-50" href="{% url 'reports:fees' %}"><p class="font-bold">Fees Reports</p><p class="text-sm text-slate-500">Date-wise, batch-wise, student-wise and all receipts: total fees, paid and balance.</p></a>
+    <a class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:bg-slate-50" href="{% url 'attendance:student_report' %}"><p class="font-bold">Student Attendance Report</p><p class="text-sm text-slate-500">Batch-wise and date-wise attendance.</p></a>
+    <a class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:bg-slate-50" href="{% url 'attendance:staff_report' %}"><p class="font-bold">Staff Attendance Report</p><p class="text-sm text-slate-500">Date-wise staff attendance.</p></a>
+    <a class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:bg-slate-50" href="{% url 'reports:students_csv' %}"><p class="font-bold">Student Directory (CSV)</p><p class="text-sm text-slate-500">With seat, batch and masked Aadhaar.</p></a>
+  </div>
+</section>
+{% endblock %}

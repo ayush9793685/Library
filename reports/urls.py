@@ -1,9 +1,11 @@
 from django.urls import path
 
-from .views import export_students_csv
+from . import views
 
 app_name = "reports"
 
 urlpatterns = [
-    path("students/csv/", export_students_csv, name="students_csv"),
+    path("", views.reports_home, name="home"),
+    path("fees/", views.fees_report, name="fees"),
+    path("students/csv/", views.export_students_csv, name="students_csv"),
 ]

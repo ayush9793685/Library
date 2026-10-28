@@ -1,4 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="space-y-5"><h1 class="text-3xl font-extrabold">My Fees & Payments</h1><div class="grid gap-4 sm:grid-cols-3"><div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-sm text-slate-500">Expected</p><p class="text-2xl font-extrabold">{{ expected }}</p></div><div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-sm text-slate-500">Paid</p><p class="text-2xl font-extrabold">{{ paid }}</p></div><div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p class="text-sm text-rose-700">Outstanding</p><p class="text-2xl font-extrabold text-rose-700">{{ outstanding }}</p></div></div><div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="mb-2 font-bold">Payment History</h2>{% for p in payments %}<p class="text-sm">{{ p.paid_on }} | {{ p.fee_structure.get_fee_type_display }} | {{ p.amount_paid }} | {{ p.reference }}</p>{% empty %}<p>No payment history.</p>{% endfor %}</div></section>
+<section class="space-y-5">
+  <h1 class="text-3xl font-extrabold">My Fees & Payments</h1>
+  <div class="grid gap-4 sm:grid-cols-3">
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-sm text-slate-500">Monthly fee ({{ student.program.name|default:"-" }})</p><p class="text-2xl font-extrabold">Rs. {{ summary.monthly_fee|floatformat:"-2" }}</p></div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-sm text-slate-500">Plan valid until</p><p class="text-2xl font-extrabold">{{ student.subscription_end|date:"d M Y"|default:"-" }}</p><p class="text-xs text-slate-500">Status: {{ summary.status }}</p></div>
+    <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p class="text-sm text-rose-700">Balance due</p><p class="text-2xl font-extrabold text-rose-700">Rs. {{ summary.balance|floatformat:"-2" }}</p></div>
+  </div>
+  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="mb-2 font-bold">Payment History</h2>
+    {% for p in summary.payments %}<p class="border-b border-slate-100 py-1.5 text-sm last:border-0"><a class="font-semibold text-brand-700" href="{% url 'fees:receipt' p.pk %}">{{ p.receipt_number }}</a> &middot; {{ p.paid_on|date:"d M Y" }} &middot; Rs. {{ p.amount_paid|floatformat:"-2" }} &middot; {{ p.get_payment_mode_display }}</p>{% empty %}<p>No payment history.</p>{% endfor %}
+  </div>
+</section>
 {% endblock %}

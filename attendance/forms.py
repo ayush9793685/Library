@@ -1,91 +1,43 @@
 from django import forms
+from django.utils import timezone
 
-from academics.models import Course, Department, Program
+from academics.models import Program
 
-from .models import AttendanceRecord, AttendanceSession, Enrollment
+from .models import Status
 
 
-class SessionForm(forms.ModelForm):
-    department = forms.ModelChoiceField(
-        queryset=Department.objects.filter(is_active=True),
-        label="Department",
-        empty_label="Select department",
-    )
-    program = forms.ModelChoiceField(
-        queryset=Program.objects.filter(is_active=True),
-        label="Program",
-        empty_label="Select program",
-    )
-    course = forms.ModelChoiceField(
-        queryset=Course.objects.filter(status=Course.Status.ACTIVE),
-        label="Course",
-        empty_label="Select course",
-    )
+class DayFilterForm(forms.Form):
+    date = forms.DateField(label="Date", widget=forms.DateInput(attrs={"type": "date"}), initial=timezone.localdate)
+    batch = forms.ModelChoiceField(label="Batch", queryset=Program.objects.none(), required=False, empty_label="All batches")
 
-    class Meta:
-        model = AttendanceSession
-        fields = [
-            "session_date",
-            "department",
-            "program",
-            "semester",
-            "course",
-            "time_slot",
-        ]
-        widgets = {
-            "session_date": forms.DateInput(attrs={"type": "date"}),
-            "semester": forms.TextInput(attrs={"placeholder": "e.g. 2026-1"}),
-        }
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, show_batch=True, **kwargs):
         super().__init__(*args, **kwargs)
-        if "department" in self.data:
-            try:
-                department_id = int(self.data.get("department"))
-                self.fields["program"].queryset = self.fields["program"].queryset.filter(department_id=department_id)
-                self.fields["course"].queryset = self.fields["course"].queryset.filter(department_id=department_id)
-            except (TypeError, ValueError):
-                pass
-        elif self.instance.pk and self.instance.department_id:
-            self.fields["program"].queryset = self.fields["program"].queryset.filter(department=self.instance.department)
-            self.fields["course"].queryset = self.fields["course"].queryset.filter(department=self.instance.department)
-        self.fields["department"].widget.attrs.update({"data-filter": "program"})
-        self.fields["program"].widget.attrs.update({"data-department": "department"})
+        self.fields["batch"].queryset = Program.objects.filter(is_active=True).order_by("name")
+        if not show_batch:
+            del self.fields["batch"]
 
-    def clean(self):
-        cleaned_data = super().clean()
-        department = cleaned_data.get("department")
-        program = cleaned_data.get("program")
-        course = cleaned_data.get("course")
-        if department and program and program.department_id != department.id:
-            self.add_error("program", "Select a program that belongs to the selected department.")
-        if department and course and course.department_id != department.id:
-            self.add_error("course", "Select a course that belongs to the selected department.")
-        return cleaned_data
-
-    def save(self, commit=True):
-        session = super().save(commit=False)
-        if session.course and session.course.instructor:
-            session.instructor = session.course.instructor
-            session.instructor_name = session.course.instructor.full_name
-        if commit:
-            session.save()
-            self.save_m2m()
-        return session
+    def clean_date(self):
+        day = self.cleaned_data["date"]
+        if day > timezone.localdate():
+            raise forms.ValidationError("Attendance cannot be marked for a future date.")
+        return day
 
 
-class AttendanceRecordForm(forms.ModelForm):
-    class Meta:
-        model = AttendanceRecord
-        fields = ["status", "remarks"]
-        widgets = {
-            "status": forms.Select(attrs={"class": "status-select"}),
-            "remarks": forms.TextInput(attrs={"placeholder": "Optional remarks", "class": "text-sm"}),
-        }
+class AttendanceReportForm(forms.Form):
+    VIEWS = [("records", "Daily records"), ("summary", "Summary (counts and %)")]
+    view = forms.ChoiceField(label="Report", choices=VIEWS, required=False)
+    month = forms.CharField(label="Month", required=False, widget=forms.DateInput(attrs={"type": "month"}))
+    date_from = forms.DateField(label="From (range)", required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    date_to = forms.DateField(label="To (range)", required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    batch = forms.ModelChoiceField(label="Batch", queryset=Program.objects.none(), required=False, empty_label="All batches")
+    who = forms.CharField(label="Student ID / Staff username", required=False, max_length=150)
+    status = forms.ChoiceField(label="Status", required=False, choices=[("", "All")] + list(Status.choices))
 
-
-class BulkAttendanceForm(forms.Form):
-    payload = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 10, "placeholder": "STU-0001,present,On time"}),
-        help_text="One record per line: student_id,status,remarks(optional)",
-    )
+    def __init__(self, *args, staff=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["batch"].queryset = Program.objects.filter(is_active=True).order_by("name")
+        if staff:
+            del self.fields["batch"]
+            self.fields["who"].label = "Staff username"
+        else:
+            self.fields["who"].label = "Student ID"

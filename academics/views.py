@@ -15,10 +15,17 @@ def _is_admin(user):
 def index(request):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
+    from students import seats
+    from students.models import Student
+
+    programs = list(Program.objects.order_by("monthly_fee", "name"))
+    for p in programs:
+        p.student_count = Student.objects.filter(program=p).exclude(status=Student.Status.DEACTIVATED).count()
     return render(
         request,
         "academics/index.html",
-        {"programs": Program.objects.order_by("name")},
+        {"programs": programs, "seats_used": Student.objects.filter(seat_number__isnull=False).count(),
+         "total_seats": seats.total_seats()},
     )
 
 
@@ -29,9 +36,9 @@ def program_create(request):
     form = ProgramForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Program created.")
+        messages.success(request, "Batch created.")
         return redirect("academics:index")
-    return render(request, "academics/form.html", {"form": form, "title": "Add Program"})
+    return render(request, "academics/form.html", {"form": form, "title": "Add Batch"})
 
 
 @login_required
@@ -42,8 +49,8 @@ def program_edit(request, pk):
     form = ProgramForm(request.POST or None, instance=program)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Program updated.")
+        messages.success(request, "Batch updated. A changed fee applies to every student from their next renewal.")
         return redirect("academics:index")
-    return render(request, "academics/form.html", {"form": form, "title": "Edit Program"})
+    return render(request, "academics/form.html", {"form": form, "title": "Edit Batch"})
 
 # Create your views here.

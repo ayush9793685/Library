@@ -6,7 +6,25 @@ from .models import Department, Program
 class ProgramForm(forms.ModelForm):
     class Meta:
         model = Program
-        fields = ["name", "code", "duration_semesters", "is_active"]
+        fields = ["name", "code", "monthly_fee", "shift", "start_time", "end_time", "is_active"]
+        labels = {"monthly_fee": "Monthly fee (Rs.)", "shift": "Shift (decides seat sharing)"}
+        widgets = {
+            "start_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "end_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+        }
+
+    def clean_monthly_fee(self):
+        fee = self.cleaned_data["monthly_fee"]
+        if fee is None or fee < 0:
+            raise forms.ValidationError("Fee cannot be negative.")
+        return fee
+
+    def clean(self):
+        cleaned = super().clean()
+        start, end = cleaned.get("start_time"), cleaned.get("end_time")
+        if start and end and end <= start:
+            self.add_error("end_time", "End time must be after the start time.")
+        return cleaned
 
     def clean_name(self):
         name = self.cleaned_data["name"].strip()

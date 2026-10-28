@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div><h1 class="text-3xl font-extrabold">Seat Map</h1>
+      <p class="text-sm text-slate-500">{{ total_seats }} seats &middot; Sankalp takes a whole seat; Pratibha (morning) and Pragati (afternoon) can share one.</p></div>
+    <a href="/students/" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Back to students</a>
+  </div>
+  <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 text-sm">
+    <div class="rounded-xl border bg-white p-3"><p class="text-slate-500">Empty seats</p><p class="text-2xl font-extrabold">{{ empty_count }}</p></div>
+    <div class="rounded-xl border bg-white p-3"><p class="text-slate-500">Sankalp seats</p><p class="text-2xl font-extrabold">{{ full_count }}</p></div>
+    <div class="rounded-xl border bg-white p-3"><p class="text-slate-500">Shared-shift seats</p><p class="text-2xl font-extrabold">{{ half_count }}</p></div>
+    <div class="rounded-xl border bg-white p-3"><p class="text-slate-500">Free for Sankalp</p><p class="text-2xl font-extrabold">{{ full_free }}</p></div>
+    <div class="rounded-xl border bg-white p-3"><p class="text-slate-500">Free for Pratibha</p><p class="text-2xl font-extrabold">{{ morning_free }}</p></div>
+    <div class="rounded-xl border bg-white p-3"><p class="text-slate-500">Free for Pragati</p><p class="text-2xl font-extrabold">{{ afternoon_free }}</p></div>
+  </div>
+  <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="px-3 py-2">Seat</th><th class="px-3 py-2">Morning (Pratibha)</th><th class="px-3 py-2">Afternoon (Pragati)</th><th class="px-3 py-2">Full day (Sankalp)</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+        <tr>
+          <td class="px-3 py-1.5 font-bold">{{ r.seat }}</td>
+          <td class="px-3 py-1.5">{% if r.morning %}<a class="text-brand-700" href="{% url 'students:detail' r.morning.pk %}">{{ r.morning.student_id }} {{ r.morning.first_name }}</a>{% elif r.full %}<span class="text-slate-400">taken (full day)</span>{% else %}<span class="text-slate-300">free</span>{% endif %}</td>
+          <td class="px-3 py-1.5">{% if r.afternoon %}<a class="text-brand-700" href="{% url 'students:detail' r.afternoon.pk %}">{{ r.afternoon.student_id }} {{ r.afternoon.first_name }}</a>{% elif r.full %}<span class="text-slate-400">taken (full day)</span>{% else %}<span class="text-slate-300">free</span>{% endif %}</td>
+          <td class="px-3 py-1.5">{% if r.full %}<a class="text-brand-700" href="{% url 'students:detail' r.full.pk %}">{{ r.full.student_id }} {{ r.full.first_name }}</a>{% elif r.morning or r.afternoon %}<span class="text-slate-400">shared</span>{% else %}<span class="text-slate-300">free</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

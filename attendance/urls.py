@@ -6,12 +6,14 @@ app_name = "attendance"
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("sessions/", views.session_list, name="session_list"),
-    path("sessions/add/", views.session_create, name="session_create"),
-    path("sessions/<int:pk>/mark/", views.mark_attendance, name="mark"),
-    path("sessions/<int:pk>/mark-all-present/", views.mark_all_present, name="mark_all_present"),
-    path("sessions/<int:pk>/delete/", views.session_delete, name="session_delete"),
-    path("export/csv/", views.export_attendance_csv, name="export_csv"),
-    path("export/excel/", views.export_attendance_excel, name="export_excel"),
-    path("export/pdf/", views.attendance_pdf_view, name="export_pdf"),
+    path("students/", views.student_daily, name="student_daily"),
+    path("staff/", views.staff_daily, name="staff_daily"),
+    path("scan/", views.scan_page, name="scan"),
+    path("scan/api/", views.scan_api, name="scan_api"),
+    path("scan/ping/", views.scan_ping, name="scan_ping"),
+    path("holidays/add/", views.holiday_add, name="holiday_add"),
+    path("holidays/<int:pk>/delete/", views.holiday_delete, name="holiday_delete"),
+    path("reports/students/", views.student_report, name="student_report"),
+    path("reports/staff/", views.staff_report, name="staff_report"),
+    path("me/", views.my_attendance, name="my"),
 ]

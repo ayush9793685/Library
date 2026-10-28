@@ -1,0 +1,6 @@
+{# Shared by every attendance and fees report: Download Excel, Download PDF, Print Report. #}
+<div class="no-print flex flex-wrap items-center gap-2">
+  <a class="inline-flex items-center rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600" href="?{% if export_qs %}{{ export_qs }}&{% endif %}export=xlsx">Download Excel</a>
+  <a class="inline-flex items-center rounded-lg bg-rose-700 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-600" href="?{% if export_qs %}{{ export_qs }}&{% endif %}export=pdf">Download PDF</a>
+  <button type="button" onclick="window.print()" class="inline-flex items-center rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">Print Report</button>
+</div>

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h1 class="mb-1 text-xl font-extrabold">Change seat</h1>
+  <p class="mb-4 text-sm text-slate-600">{{ student.first_name }} {{ student.last_name }} &middot; {{ student.program.name }} ({{ student.program.timing_display }}) &middot; current seat <strong>{{ student.seat_number|default:"-" }}</strong></p>
+  <form method="post" class="space-y-3">
+    {% csrf_token %}
+    <label class="block text-sm font-medium" for="seat">New seat (only seats free for these timings are listed)</label>
+    <select name="seat" id="seat" required>
+      {% for n in options %}<option value="{{ n }}" {% if n == student.seat_number %}selected{% endif %}>Seat {{ n }}</option>{% endfor %}
+    </select>
+    {% if error %}<p class="text-sm text-red-600">{{ error }}</p>{% endif %}
+    <div class="flex gap-2"><button class="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white">Change seat</button>
+      <a class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700" href="{% url 'students:detail' student.pk %}">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

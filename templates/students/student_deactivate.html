@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h1 class="mb-1 text-2xl font-extrabold">Deactivate {{ student.first_name }} {{ student.last_name }}?</h1>
+  <p class="mb-4 text-sm text-slate-600">{{ student.student_id }} &middot; {{ student.program.name|default:"-" }} &middot; Seat {{ student.seat_number|default:"-" }}</p>
+  <ul class="mb-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
+    <li>The seat is freed immediately and can go to a new student.</li>
+    <li>The RFID card ({{ student.rfid_uid|default:"none linked" }}) is disabled <strong>permanently</strong>.</li>
+    <li>Payments, attendance and records are kept. This cannot be undone; a returning student must be registered again.</li>
+    <li>This is different from an expired plan: expired students stay Inactive until they pay.</li>
+  </ul>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    <div><label class="mb-1 block text-sm font-medium" for="reason">Reason<span class="text-rose-600">*</span></label>
+      <input id="reason" name="reason" maxlength="255" required value="{{ request.POST.reason }}"></div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="confirm" value="yes" class="h-4 w-4"> I confirm this deactivation.</label>
+    {% if error %}<p class="text-sm text-red-600">{{ error }}</p>{% endif %}
+    <div class="flex gap-2"><button class="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white">Deactivate</button>
+      <a href="{% url 'students:detail' student.pk %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

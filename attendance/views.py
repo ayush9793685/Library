@@ -1,337 +1,357 @@
-import csv
 from collections import defaultdict
+from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
-from django.http import HttpResponse, HttpResponseForbidden
+from django.db import transaction
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
+from audits.utils import create_audit_log
+from reports.exports import export_querystring, maybe_export
+from reports.views import month_bounds
 from students.models import Student
 
-from .forms import AttendanceRecordForm, SessionForm
-from .models import AttendanceRecord, AttendanceSession, Enrollment
+from . import services
+from .forms import AttendanceReportForm, DayFilterForm
+from .models import Holiday, StaffAttendance, Status, StudentAttendance
+
+SCREEN_ROW_LIMIT = 500
+VALID = {s.value for s in Status}
 
 
 def _is_admin(user):
-    return user.is_authenticated and (user.is_staff or user.role == "admin")
+    return user.is_authenticated and (user.is_staff or getattr(user, "role", "") == "admin")
 
 
-def _sync_session_enrollments(session):
-    students_qs = Student.objects.select_related("department", "program").filter(
-        status=Student.Status.ACTIVE
-    )
-    if session.department_id:
-        students_qs = students_qs.filter(department_id=session.department_id)
-    if session.program_id:
-        students_qs = students_qs.filter(program_id=session.program_id)
-    if session.semester:
-        students_qs = students_qs.filter(semester=session.semester)
+def _full_name(s):
+    return " ".join(p for p in [s.first_name, s.middle_name, s.last_name] if p)
 
-    created = 0
-    for student in students_qs.order_by("student_id"):
-        _, was_created = Enrollment.objects.get_or_create(
-            course=session.course,
-            student_id=student.student_id,
-        )
-        if was_created:
-            created += 1
-    return created
+
+def _time(dt):
+    return timezone.localtime(dt).strftime("%I:%M %p").lstrip("0") if dt else ""
 
 
 @login_required
 def index(request):
-    if _is_admin(request.user):
-        sessions = AttendanceSession.objects.annotate(
-            total=Count("records")
-        ).select_related("course").order_by("-session_date")[:50]
+    if not _is_admin(request.user):
+        return redirect("attendance:my")
+    today = timezone.localdate()
+    counts = {s: StudentAttendance.objects.filter(date=today, status=s).count() for s in VALID}
+    staff_counts = {s: StaffAttendance.objects.filter(date=today, status=s).count() for s in VALID}
+    return render(request, "attendance/index.html", {
+        "today": today, "counts": counts, "staff_counts": staff_counts,
+        "active_students": Student.objects.filter(status=Student.Status.ACTIVE).count(),
+        "holiday": Holiday.objects.filter(date=today).first(),
+        "holidays": Holiday.objects.filter(date__gte=today).order_by("date")[:5],
+    })
 
-        report = AttendanceRecord.objects.values("status").annotate(
-            total=Count("id")
-        ).order_by("status")
 
-        monthly = defaultdict(lambda: {"total": 0, "present_like": 0})
-        low_attendance = []
-
-        student_records = AttendanceRecord.objects.values(
-            "student_id", "status"
-        ).order_by("student_id")
-        per_student = defaultdict(lambda: {"total": 0, "present_like": 0})
-        for row in student_records:
-            sid = row["student_id"]
-            per_student[sid]["total"] += 1
-            if row["status"] in [
-                AttendanceRecord.Status.PRESENT,
-                AttendanceRecord.Status.LATE,
-                AttendanceRecord.Status.EXCUSED,
-            ]:
-                per_student[sid]["present_like"] += 1
-        for sid, data in per_student.items():
-            pct = (data["present_like"] / data["total"] * 100) if data["total"] else 0
-            if pct < 75:
-                low_attendance.append(
-                    {"student_id": sid, "percentage": round(pct, 2)}
-                )
-
-        for row in (
-            AttendanceRecord.objects.select_related("session")
-            .values("session__session_date", "status")
-        ):
-            month_key = row["session__session_date"].strftime("%Y-%m")
-            monthly[month_key]["total"] += 1
-            if row["status"] in [
-                AttendanceRecord.Status.PRESENT,
-                AttendanceRecord.Status.LATE,
-                AttendanceRecord.Status.EXCUSED,
-            ]:
-                monthly[month_key]["present_like"] += 1
-
-        trend_labels = sorted(monthly.keys())
-        trend_values = [
-            round((monthly[m]["present_like"] / monthly[m]["total"] * 100), 2)
-            if monthly[m]["total"]
-            else 0
-            for m in trend_labels
-        ]
-
-        return render(
-            request,
-            "attendance/index.html",
-            {
-                "sessions": sessions,
-                "report": report,
-                "is_admin": True,
-                "low_attendance": low_attendance[:15],
-                "trend_labels": trend_labels,
-                "trend_values": trend_values,
-            },
-        )
-
-    student = get_object_or_404(Student, user=request.user)
-    records = (
-        AttendanceRecord.objects.filter(student_id=student.student_id)
-        .select_related("session", "session__course")
-        .order_by("-session__session_date")
-    )
-    total = records.count()
-    present_like = records.filter(
-        status__in=[
-            AttendanceRecord.Status.PRESENT,
-            AttendanceRecord.Status.LATE,
-            AttendanceRecord.Status.EXCUSED,
-        ]
-    ).count()
-    percentage = round((present_like / total) * 100, 2) if total else 0
-    by_course = (
-        records.values("session__course__code", "session__course__name")
-        .annotate(
-            total=Count("id"),
-            present=Count("id", filter=Q(status=AttendanceRecord.Status.PRESENT)),
-        )
-    )
-    return render(
-        request,
-        "attendance/student_view.html",
-        {
-            "records": records[:100],
-            "attendance_percentage": percentage,
-            "by_course": by_course,
-        },
-    )
+# ----------------------------------------------------------------- RFID scan
+@login_required
+def scan_page(request):
+    if not _is_admin(request.user):
+        return HttpResponseForbidden("Not allowed")
+    recent = StudentAttendance.objects.filter(source=StudentAttendance.Source.RFID, date=timezone.localdate()) \
+        .select_related("student").order_by("-updated_at")[:10]
+    return render(request, "attendance/scan.html", {"recent": recent})
 
 
 @login_required
-def session_create(request):
+@require_POST
+def scan_api(request):
+    if not _is_admin(request.user):
+        return JsonResponse({"ok": False, "level": "error", "message": "Not allowed."}, status=403)
+    result = services.process_scan(request.POST.get("card", ""))
+    return JsonResponse(result)
+
+
+@login_required
+def scan_ping(request):
+    """Keeps the scan station's login alive (sessions otherwise expire after 30 idle minutes)."""
+    return JsonResponse({"ok": _is_admin(request.user)})
+
+
+# ------------------------------------------------------ daily marking screens
+def _save_marks(request, model, key_field, ids, day, label):
+    changed = 0
+    for pk in ids:
+        value = request.POST.get(f"status_{pk}", "")
+        remark = request.POST.get(f"remarks_{pk}", "").strip()[:255]
+        if value not in VALID:
+            continue
+        defaults = {"status": value, "remarks": remark, "marked_by": request.user}
+        if model is StudentAttendance:
+            defaults["source"] = StudentAttendance.Source.MANUAL
+        obj, created = model.objects.get_or_create(**{key_field: pk, "date": day}, defaults=defaults)
+        if not created and (obj.status != value or obj.remarks != remark):
+            for k, v in defaults.items():
+                setattr(obj, k, v)
+            obj.save()  # scan in/out times stay as history
+            changed += 1
+        elif created:
+            changed += 1
+    create_audit_log(user=request.user, action=f"{label}_attendance_marked", object_modified=str(day), new_value=f"{changed} record(s)")
+    return changed
+
+
+@login_required
+def student_daily(request):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
-    form = SessionForm(request.POST or None)
+    form = DayFilterForm(request.GET or request.POST or None)
+    day, batch = timezone.localdate(), None
+    if form.is_bound and form.is_valid():
+        day, batch = form.cleaned_data["date"], form.cleaned_data.get("batch")
+    elif form.is_bound:
+        messages.error(request, "; ".join(e for errs in form.errors.values() for e in errs))
+    students = Student.objects.select_related("program").exclude(status=Student.Status.DEACTIVATED).order_by("student_id")
+    if batch:
+        students = students.filter(program=batch)
+    students = list(students)
+
     if request.method == "POST" and form.is_valid():
-        session = form.save()
-        created = _sync_session_enrollments(session)
-        messages.success(request, "Attendance session created.")
-        if created:
-            messages.info(request, f"Enrolled {created} matching students for attendance.")
-        return redirect("attendance:mark", pk=session.pk)
-    return render(
-        request, "attendance/form.html", {"form": form, "title": "Create Attendance Session"}
-    )
+        action = request.POST.get("action", "save")
+        with transaction.atomic():
+            if action == "all_present":
+                for s in students:
+                    StudentAttendance.objects.update_or_create(
+                        student=s, date=day,
+                        defaults={"status": Status.PRESENT, "marked_by": request.user, "source": StudentAttendance.Source.MANUAL},
+                    )
+                messages.success(request, f"{len(students)} student(s) marked Present for {day:%d %b %Y}.")
+            elif action == "absentees":
+                count = services.mark_absentees(day, batch)
+                if count is None:
+                    messages.info(request, f"{day:%d %b %Y} is a holiday, so nobody was marked Absent.")
+                else:
+                    messages.success(request, f"{count} student(s) with no record were marked Absent.")
+            else:
+                changed = _save_marks(request, StudentAttendance, "student_id", [s.pk for s in students], day, "student")
+                messages.success(request, f"Attendance saved ({changed} change(s)).")
+        return redirect(f"{request.path}?date={day.isoformat()}" + (f"&batch={batch.pk}" if batch else ""))
+
+    records = {r.student_id: r for r in StudentAttendance.objects.filter(date=day, student__in=students)}
+    rows = []
+    for s in students:
+        r = records.get(s.pk)
+        rows.append({
+            "id": s.pk, "label": f"{s.student_id} - {_full_name(s)}",
+            "sub": f"{s.program.name if s.program else '-'} · Seat {s.seat_number or '-'}"
+                   + (" · Plan expired" if s.status == Student.Status.INACTIVE else ""),
+            "status": r.status if r else "", "remarks": r.remarks if r else "",
+            "times": (f"In {_time(r.check_in)}" + (f" / Out {_time(r.check_out)}" if r.check_out else "")) if r and r.check_in else "",
+            "flag": "outside shift" if r and r.outside_shift else "",
+        })
+    return render(request, "attendance/mark_daily.html", {
+        "title": "Student Attendance", "form": form, "rows": rows, "day": day, "is_student": True,
+        "holiday": Holiday.objects.filter(date=day).first(), "report_url": "attendance:student_report",
+    })
 
 
 @login_required
-def mark_attendance(request, pk):
+def staff_daily(request):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
-    session = get_object_or_404(
-        AttendanceSession.objects.select_related("course"), pk=pk
-    )
+    form = DayFilterForm(request.GET or request.POST or None, show_batch=False)
+    day = timezone.localdate()
+    if form.is_bound and form.is_valid():
+        day = form.cleaned_data["date"]
+    elif form.is_bound:
+        messages.error(request, "; ".join(e for errs in form.errors.values() for e in errs))
+    staff = list(services.staff_queryset())
 
-    _sync_session_enrollments(session)
+    if request.method == "POST" and form.is_valid():
+        action = request.POST.get("action", "save")
+        with transaction.atomic():
+            if action == "all_present":
+                for u in staff:
+                    StaffAttendance.objects.update_or_create(user=u, date=day, defaults={"status": Status.PRESENT, "marked_by": request.user})
+                messages.success(request, f"{len(staff)} staff member(s) marked Present for {day:%d %b %Y}.")
+            else:
+                changed = _save_marks(request, StaffAttendance, "user_id", [u.pk for u in staff], day, "staff")
+                messages.success(request, f"Staff attendance saved ({changed} change(s)).")
+        return redirect(f"{request.path}?date={day.isoformat()}")
 
-    enrolled = Enrollment.objects.filter(course=session.course).select_related(
-        "course"
-    )
-    existing = {
-        r.student_id: r
-        for r in session.records.all()
-    }
+    records = {r.user_id: r for r in StaffAttendance.objects.filter(date=day, user__in=staff)}
+    rows = []
+    for u in staff:
+        r = records.get(u.pk)
+        rows.append({"id": u.pk, "label": u.get_full_name() or u.username, "sub": u.username,
+                     "status": r.status if r else "", "remarks": r.remarks if r else "", "times": "", "flag": ""})
+    return render(request, "attendance/mark_daily.html", {
+        "title": "Staff Attendance", "form": form, "rows": rows, "day": day, "is_student": False,
+        "holiday": Holiday.objects.filter(date=day).first(), "report_url": "attendance:staff_report",
+    })
 
-    if request.method == "POST":
-        forms_data = {}
-        for key, value in request.POST.items():
-            if key.startswith("status_"):
-                sid = key.replace("status_", "")
-                forms_data[sid] = {
-                    "status": value,
-                    "remarks": request.POST.get(f"remarks_{sid}", ""),
-                }
-        created = 0
-        for sid, data in forms_data.items():
-            if data["status"] not in {c[0] for c in AttendanceRecord.Status.choices}:
-                continue
-            AttendanceRecord.objects.update_or_create(
-                session=session,
-                student_id=sid,
-                defaults={
-                    "status": data["status"],
-                    "remarks": data["remarks"],
-                },
-            )
-            created += 1
-        messages.success(request, f"Saved {created} attendance records.")
+
+@login_required
+@require_POST
+def holiday_add(request):
+    if not _is_admin(request.user):
+        return HttpResponseForbidden("Not allowed")
+    name = request.POST.get("name", "").strip()[:120]
+    try:
+        day = datetime.strptime(request.POST.get("date", ""), "%Y-%m-%d").date()
+    except ValueError:
+        messages.error(request, "Enter a valid holiday date.")
         return redirect("attendance:index")
-
-    enrolled_students = []
-    students = {
-        student.student_id: student
-        for student in Student.objects.filter(
-            student_id__in=[e.student_id for e in enrolled]
-        )
-    }
-    for e in enrolled:
-        record = existing.get(e.student_id)
-        enrolled_students.append(
-            {
-                "enrollment": e,
-                "student": students.get(e.student_id),
-                "record": record,
-                "form": AttendanceRecordForm(
-                    initial={
-                        "status": record.status if record else AttendanceRecord.Status.PRESENT,
-                        "remarks": record.remarks if record else "",
-                    }
-                ),
-            }
-        )
-
-    return render(
-        request,
-        "attendance/mark.html",
-        {
-            "session": session,
-            "enrolled_students": enrolled_students,
-        },
-    )
+    if not name:
+        messages.error(request, "Give the holiday a name.")
+    else:
+        Holiday.objects.get_or_create(date=day, defaults={"name": name})
+        messages.success(request, f"Holiday added: {name} ({day:%d %b %Y}).")
+    return redirect("attendance:index")
 
 
 @login_required
-def mark_all_present(request, pk):
+@require_POST
+def holiday_delete(request, pk):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
-    session = get_object_or_404(AttendanceSession, pk=pk)
-    _sync_session_enrollments(session)
-    enrolled = Enrollment.objects.filter(course=session.course)
-    count = 0
-    for e in enrolled:
-        AttendanceRecord.objects.update_or_create(
-            session=session,
-            student_id=e.student_id,
-            defaults={"status": AttendanceRecord.Status.PRESENT, "remarks": ""},
-        )
-        count += 1
-    messages.success(request, f"Marked {count} students present.")
-    return redirect("attendance:mark", pk=pk)
+    get_object_or_404(Holiday, pk=pk).delete()
+    messages.success(request, "Holiday removed.")
+    return redirect("attendance:index")
+
+
+# ------------------------------------------------------------------- reports
+def _range_from(data):
+    if data.get("date_from") and data.get("date_to"):
+        start, end = data["date_from"], data["date_to"]
+        if end < start:
+            start, end = end, start
+        return start, end, f"{start:%d %b %Y} to {end:%d %b %Y}"
+    start, end = month_bounds(data.get("month"))
+    return start, end, f"{start:%B %Y}"
+
+
+def _pct(present, total):
+    return f"{(present / total * 100):.1f}%" if total else "-"
 
 
 @login_required
-def session_list(request):
+def student_report(request):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
-    sessions = AttendanceSession.objects.annotate(
-        total=Count("records")
-    ).select_related("course").order_by("-session_date")
-    return render(request, "attendance/session_list.html", {"sessions": sessions})
+    form = AttendanceReportForm(request.GET or None)
+    data = form.cleaned_data if form.is_bound and form.is_valid() else {}
+    view = data.get("view") or "records"
+    start, end, period = _range_from(data)
+    qs = StudentAttendance.objects.filter(date__range=(start, end)).select_related("student", "student__program")
+    if data.get("batch"):
+        qs = qs.filter(student__program=data["batch"])
+    if data.get("who"):
+        qs = qs.filter(student__student_id__iexact=data["who"].strip())
+    if data.get("status"):
+        qs = qs.filter(status=data["status"])
+    subtitle = f"{period}" + (f" | Batch: {data['batch'].name}" if data.get("batch") else "")
+    totals, cards = None, []
+
+    if view == "summary":
+        title = "Student Attendance - Summary"
+        headers = ["Student ID", "Name", "Batch", "Seat", "Present", "Absent", "Leave", "Days marked", "Attendance %"]
+        agg = defaultdict(lambda: {"present": 0, "absent": 0, "leave": 0})
+        students = {}
+        for r in qs:
+            agg[r.student_id][r.status] += 1
+            students[r.student_id] = r.student
+        rows = []
+        tp = ta = tl = 0
+        for sid in sorted(agg, key=lambda i: students[i].student_id):
+            s, a = students[sid], agg[sid]
+            total = a["present"] + a["absent"] + a["leave"]
+            rows.append([s.student_id, _full_name(s), s.program.name if s.program else "", s.seat_number or "",
+                         a["present"], a["absent"], a["leave"], total, _pct(a["present"], total - a["leave"])])
+            tp += a["present"]; ta += a["absent"]; tl += a["leave"]
+        totals = ["Total", "", "", "", tp, ta, tl, tp + ta + tl, _pct(tp, tp + ta)]
+        cards = [("Students", len(rows)), ("Present", tp), ("Absent", ta), ("Leave", tl)]
+    else:
+        title = "Student Attendance - Daily Records"
+        headers = ["Date", "Student ID", "Name", "Batch", "Seat", "Status", "In", "Out", "Source", "Note"]
+        rows = [
+            [r.date, r.student.student_id, _full_name(r.student), r.student.program.name if r.student.program else "",
+             r.student.seat_number or "", r.get_status_display(), _time(r.check_in), _time(r.check_out),
+             r.get_source_display(), "Outside shift" if r.outside_shift else r.remarks]
+            for r in qs.order_by("date", "student__student_id")
+        ]
+        counts = {s: sum(1 for r in rows if r[5] == lbl) for s, lbl in [("p", "Present"), ("a", "Absent"), ("l", "Leave")]}
+        cards = [("Records", len(rows)), ("Present", counts["p"]), ("Absent", counts["a"]), ("Leave", counts["l"])]
+
+    exported = maybe_export(request, filename="student_attendance_" + view, title=title, subtitle=subtitle,
+                            headers=headers, rows=rows, totals=totals)
+    if exported:
+        return exported
+    return render(request, "reports/report_page.html", {
+        "title": title, "subtitle": subtitle, "form": form, "headers": headers, "rows": rows[:SCREEN_ROW_LIMIT],
+        "totals": totals, "summary_cards": cards, "export_qs": export_querystring(request),
+        "truncated": SCREEN_ROW_LIMIT if len(rows) > SCREEN_ROW_LIMIT else None,
+    })
 
 
 @login_required
-def session_delete(request, pk):
+def staff_report(request):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
-    session = get_object_or_404(AttendanceSession.objects.select_related("course"), pk=pk)
-    if request.method == "POST":
-        label = f"{session.course.code} on {session.session_date}"
-        session.delete()
-        messages.success(request, f"Deleted attendance session: {label}.")
-        return redirect("attendance:session_list")
-    return render(request, "attendance/session_confirm_delete.html", {"session": session})
+    form = AttendanceReportForm(request.GET or None, staff=True)
+    data = form.cleaned_data if form.is_bound and form.is_valid() else {}
+    view = data.get("view") or "records"
+    start, end, period = _range_from(data)
+    qs = StaffAttendance.objects.filter(date__range=(start, end)).select_related("user")
+    if data.get("who"):
+        qs = qs.filter(user__username__iexact=data["who"].strip())
+    if data.get("status"):
+        qs = qs.filter(status=data["status"])
+    subtitle = period
+    totals, cards = None, []
+
+    def name(u):
+        return u.get_full_name() or u.username
+
+    if view == "summary":
+        title = "Staff Attendance - Summary"
+        headers = ["Staff", "Username", "Present", "Absent", "Leave", "Days marked", "Attendance %"]
+        agg = defaultdict(lambda: {"present": 0, "absent": 0, "leave": 0})
+        users = {}
+        for r in qs:
+            agg[r.user_id][r.status] += 1
+            users[r.user_id] = r.user
+        rows = []
+        tp = ta = tl = 0
+        for uid in sorted(agg, key=lambda i: users[i].username):
+            u, a = users[uid], agg[uid]
+            total = a["present"] + a["absent"] + a["leave"]
+            rows.append([name(u), u.username, a["present"], a["absent"], a["leave"], total, _pct(a["present"], total - a["leave"])])
+            tp += a["present"]; ta += a["absent"]; tl += a["leave"]
+        totals = ["Total", "", tp, ta, tl, tp + ta + tl, _pct(tp, tp + ta)]
+        cards = [("Staff", len(rows)), ("Present", tp), ("Absent", ta), ("Leave", tl)]
+    else:
+        title = "Staff Attendance - Daily Records"
+        headers = ["Date", "Staff", "Username", "Status", "Remarks"]
+        rows = [[r.date, name(r.user), r.user.username, r.get_status_display(), r.remarks]
+                for r in qs.order_by("date", "user__username")]
+        cards = [("Records", len(rows))] + [(lbl, sum(1 for r in rows if r[3] == lbl)) for lbl in ("Present", "Absent", "Leave")]
+
+    exported = maybe_export(request, filename="staff_attendance_" + view, title=title, subtitle=subtitle,
+                            headers=headers, rows=rows, totals=totals)
+    if exported:
+        return exported
+    return render(request, "reports/report_page.html", {
+        "title": title, "subtitle": subtitle, "form": form, "headers": headers, "rows": rows[:SCREEN_ROW_LIMIT],
+        "totals": totals, "summary_cards": cards, "export_qs": export_querystring(request),
+        "truncated": SCREEN_ROW_LIMIT if len(rows) > SCREEN_ROW_LIMIT else None,
+    })
 
 
 @login_required
-def export_attendance_csv(request):
-    if not _is_admin(request.user):
-        return HttpResponseForbidden("Not allowed")
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = 'attachment; filename="attendance_report.csv"'
-    writer = csv.writer(response)
-    writer.writerow(
-        ["Date", "Course", "Student ID", "Status", "Remarks", "Department", "Semester", "Time Slot"]
-    )
-    records = (
-        AttendanceRecord.objects.select_related("session", "session__course")
-        .order_by("-session__session_date", "student_id")
-    )
-    for r in records:
-        writer.writerow(
-            [
-                r.session.session_date,
-                r.session.course.code,
-                r.student_id,
-                r.status,
-                r.remarks,
-                r.session.department.name if r.session.department else "",
-                r.session.semester,
-                r.session.get_time_slot_display(),
-            ]
-        )
-    return response
-
-
-@login_required
-def export_attendance_excel(request):
-    if not _is_admin(request.user):
-        return HttpResponseForbidden("Not allowed")
-    response = HttpResponse(content_type="application/vnd.ms-excel")
-    response["Content-Disposition"] = 'attachment; filename="attendance_report.xls"'
-    rows = ["Date\tCourse\tStudent ID\tStatus\tRemarks\tDepartment\tSemester\tTime Slot"]
-    records = (
-        AttendanceRecord.objects.select_related("session", "session__course", "session__department")
-        .order_by("-session__session_date", "student_id")
-    )
-    for r in records:
-        rows.append(
-            f"{r.session.session_date}\t{r.session.course.code}\t{r.student_id}\t"
-            f"{r.status}\t{r.remarks}\t{r.session.department.name if r.session.department else ''}\t"
-            f"{r.session.semester}\t{r.session.get_time_slot_display()}"
-        )
-    response.write("\n".join(rows))
-    return response
-
-
-@login_required
-def attendance_pdf_view(request):
-    if not _is_admin(request.user):
-        return HttpResponseForbidden("Not allowed")
-    records = (
-        AttendanceRecord.objects.select_related("session", "session__course")
-        .order_by("-session__session_date", "student_id")[:500]
-    )
-    return render(request, "attendance/report_pdf.html", {"records": records})
+def my_attendance(request):
+    student = get_object_or_404(Student, user=request.user)
+    start, end = month_bounds(request.GET.get("month"))
+    records = StudentAttendance.objects.filter(student=student, date__range=(start, end)).order_by("-date")
+    counts = {s: records.filter(status=s).count() for s in VALID}
+    total = counts["present"] + counts["absent"]
+    return render(request, "attendance/student_view.html", {
+        "student": student, "records": records, "counts": counts,
+        "percent": _pct(counts["present"], total), "month": start,
+    })

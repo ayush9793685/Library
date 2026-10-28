@@ -1,65 +1,64 @@
+from django.conf import settings
 from django.db import models
 
-from academics.models import Course
+
+class Status(models.TextChoices):
+    PRESENT = "present", "Present"
+    ABSENT = "absent", "Absent"
+    LEAVE = "leave", "Leave"
 
 
-class Enrollment(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="enrollments")
-    student_id = models.CharField(max_length=30, db_index=True)
-    enrolled_at = models.DateTimeField(auto_now_add=True)
+class Holiday(models.Model):
+    """Closed days: nobody is marked Absent automatically on these dates."""
 
-    class Meta:
-        unique_together = ("course", "student_id")
-        verbose_name = "Enrollment"
-        verbose_name_plural = "Enrollments"
-
-    def __str__(self):
-        return f"{self.student_id} -> {self.course.code}"
-
-
-class AttendanceSession(models.Model):
-    class TimeSlot(models.TextChoices):
-        MORNING = "morning", "Morning (08:00–10:00)"
-        MID_MORNING = "mid_morning", "Mid-Morning (10:00–12:00)"
-        AFTERNOON = "afternoon", "Afternoon (12:00–14:00)"
-        MID_AFTERNOON = "mid_afternoon", "Mid-Afternoon (14:00–16:00)"
-        EVENING = "evening", "Evening (16:00–18:00)"
-
-    session_date = models.DateField(db_index=True)
-    course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name="attendance_sessions")
-    department = models.ForeignKey("academics.Department", on_delete=models.PROTECT, related_name="attendance_sessions", null=True, blank=True)
-    program = models.ForeignKey("academics.Program", on_delete=models.PROTECT, related_name="attendance_sessions", null=True, blank=True)
-    semester = models.CharField(max_length=20)
-    instructor_name = models.CharField(max_length=120, blank=True)
-    instructor = models.ForeignKey("academics.Faculty", on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_sessions")
-    time_slot = models.CharField(max_length=30, choices=TimeSlot.choices, default=TimeSlot.MORNING)
-    created_at = models.DateTimeField(auto_now_add=True)
+    date = models.DateField(unique=True)
+    name = models.CharField(max_length=120)
 
     class Meta:
-        indexes = [
-            models.Index(fields=["department", "semester"]),
-            models.Index(fields=["course", "session_date"]),
-        ]
+        ordering = ["-date"]
 
     def __str__(self):
-        return f"{self.course.code} – {self.session_date} ({self.get_time_slot_display()})"
+        return f"{self.date} {self.name}"
 
 
-class AttendanceRecord(models.Model):
-    class Status(models.TextChoices):
-        PRESENT = "present", "Present"
-        ABSENT = "absent", "Absent"
-        LATE = "late", "Late"
-        EXCUSED = "excused", "Excused"
+class StudentAttendance(models.Model):
+    class Source(models.TextChoices):
+        RFID = "rfid", "RFID card"
+        MANUAL = "manual", "Marked by admin"
+        AUTO = "auto", "Automatic (no scan)"
 
-    session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name="records")
-    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="attendance_records", null=True, blank=True)
-    student_id = models.CharField(max_length=30, db_index=True)
-    status = models.CharField(max_length=20, choices=Status.choices)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_records")
+    date = models.DateField(db_index=True)
+    status = models.CharField(max_length=10, choices=Status.choices)
+    check_in = models.DateTimeField(null=True, blank=True)
+    check_out = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.MANUAL)
+    outside_shift = models.BooleanField(default=False, help_text="Scanned outside the student's batch timings.")
     remarks = models.CharField(max_length=255, blank=True)
+    marked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("session", "student_id")
+        constraints = [models.UniqueConstraint(fields=["student", "date"], name="one_attendance_per_student_per_day")]
+        ordering = ["-date", "student__student_id"]
+        indexes = [models.Index(fields=["date", "status"])]
 
     def __str__(self):
-        return f"{self.student_id} – {self.status} ({self.session})"
+        return f"{self.student_id} {self.date} {self.status}"
+
+
+class StaffAttendance(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="staff_attendance")
+    date = models.DateField(db_index=True)
+    status = models.CharField(max_length=10, choices=Status.choices)
+    remarks = models.CharField(max_length=255, blank=True)
+    marked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "date"], name="one_attendance_per_staff_per_day")]
+        ordering = ["-date", "user__username"]
+        indexes = [models.Index(fields=["date", "status"])]
+
+    def __str__(self):
+        return f"{self.user_id} {self.date} {self.status}"

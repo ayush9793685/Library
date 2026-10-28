@@ -1,13 +1,67 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-3">{{ student.first_name }} {{ student.last_name }}</h1>
-<div class="bg-white p-4 rounded shadow space-y-1">
-  <p>Student ID: {{ student.student_id }}</p><p>Registration: {{ student.registration_number }}</p><p>Status: {{ student.get_status_display }}</p>
-</div>
-<div class="mt-4 space-x-2">
-  <a class="bg-amber-600 text-white px-3 py-2 rounded" href="/students/{{ student.id }}/edit/">Edit</a>
-  {% if request.user.is_staff or request.user.role == 'admin' %}
-  <a class="bg-red-700 text-white px-3 py-2 rounded" href="/students/{{ student.id }}/delete/">Delete</a>
+<section class="mx-auto max-w-4xl space-y-5">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-extrabold">{{ student.first_name }} {{ student.last_name }}</h1>
+      <p class="text-sm text-slate-500">{{ student.student_id }} &middot; Reg. {{ student.registration_number }}</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="rounded-full px-3 py-1 text-xs font-bold
+        {% if student.status == 'active' %}bg-emerald-100 text-emerald-700{% elif student.status == 'inactive' %}bg-amber-100 text-amber-700{% else %}bg-slate-200 text-slate-700{% endif %}">{{ student.get_status_display }}</span>
+      <span class="rounded-full px-3 py-1 text-xs font-bold
+        {% if payment_status == 'Paid' %}bg-emerald-100 text-emerald-700{% elif payment_status == 'Unpaid' %}bg-sky-100 text-sky-700{% elif payment_status == 'Overdue' %}bg-rose-100 text-rose-700{% else %}bg-slate-200 text-slate-700{% endif %}">Fees: {{ payment_status }}</span>
+    </div>
+  </div>
+
+  {% if student.status == 'inactive' %}
+    <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">The plan expired on {{ student.subscription_end|date:"d M Y" }}. The RFID card is blocked and the seat is kept until a payment is made.</div>
+  {% elif student.status == 'deactivated' %}
+    <div class="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">Deactivated on {{ student.deactivated_at|date:"d M Y" }}: {{ student.deactivation_reason }}. The seat was released and the RFID card is disabled permanently.</div>
   {% endif %}
-</div>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="mb-2 font-bold">Batch &amp; Seat</h2>
+      <dl class="space-y-1 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Batch</dt><dd>{{ student.program.name|default:"-" }} {% if student.program.timing_display %}({{ student.program.timing_display }}){% endif %}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Seat number</dt><dd class="font-bold">{{ student.seat_number|default:"-" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Monthly fee</dt><dd>Rs. {{ student.monthly_fee|floatformat:"-2" }}{% if student.has_custom_fee %} <span class="text-xs text-slate-500">(custom)</span>{% endif %}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Plan valid until</dt><dd>{% if student.subscription_end %}{{ student.subscription_end|date:"d M Y" }}{% else %}-{% endif %}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">RFID card</dt><dd>{{ student.rfid_uid|default:"Not linked" }}</dd></div>
+      </dl>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="mb-2 font-bold">Identity</h2>
+      <dl class="space-y-1 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Aadhaar</dt><dd class="font-mono">{{ student.aadhaar_masked }}</dd></div>
+        {% if is_admin and student.aadhaar_copy %}
+        <div class="flex justify-between"><dt class="text-slate-500">Aadhaar copy</dt><dd><a class="font-semibold text-brand-700 underline" href="{% url 'students:aadhaar_copy' student.pk %}">Request to view (password)</a></dd></div>
+        {% endif %}
+        <div class="flex justify-between"><dt class="text-slate-500">Phone</dt><dd>{{ student.contact.mobile_number|default:"-" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Email</dt><dd>{{ student.contact.primary_email|default:"-" }}</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="mb-2 flex items-center justify-between"><h2 class="font-bold">Recent payments</h2>
+      {% if is_admin and student.status != 'deactivated' %}<a class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white" href="{% url 'fees:payment_create' %}?student={{ student.student_id }}">Record Payment</a>{% endif %}
+    </div>
+    {% for p in recent_payments %}
+      <p class="border-b border-slate-100 py-1.5 text-sm last:border-0"><a class="font-semibold text-brand-700" href="{% url 'fees:receipt' p.pk %}">{{ p.receipt_number }}</a> &middot; {{ p.paid_on|date:"d M Y" }} &middot; Rs. {{ p.amount_paid|floatformat:"-2" }} &middot; {{ p.get_payment_mode_display }} &middot; {{ p.period_start|date:"d M" }} to {{ p.period_end|date:"d M Y" }}</p>
+    {% empty %}<p class="text-sm text-slate-500">No payments yet.</p>{% endfor %}
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    <a class="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white" href="/students/{{ student.id }}/edit/">Edit</a>
+    {% if is_admin %}
+      {% if student.status != 'deactivated' %}
+        <a class="rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white" href="{% url 'students:seat_change' student.pk %}">Change Seat</a>
+        <a class="rounded-lg bg-rose-700 px-3 py-2 text-sm font-semibold text-white" href="{% url 'students:deactivate' student.pk %}">Deactivate Student</a>
+      {% endif %}
+      <a class="rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-700" href="/students/{{ student.id }}/delete/">Delete</a>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

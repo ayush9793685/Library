@@ -32,6 +32,7 @@ urlpatterns = [
     path('helpdesk/', include('helpdesk.urls')),
     path('audits/', include('audits.urls')),
     path('reports/', include('reports.urls')),
+    path('attendance/', include('attendance.urls')),
 ]
 
 if settings.DEBUG:
