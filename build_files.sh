@@ -10,8 +10,4 @@ else
   /tmp/buildenv/bin/pip install -r requirements.txt
 fi
 
-<<<<<<< HEAD
 /tmp/buildenv/bin/python manage.py collectstatic --noinput
-=======
-/tmp/buildenv/bin/python manage.py collectstatic --noinput
->>>>>>> 49724e3896a26d59b87f5e59d7db23406a394769
