@@ -195,7 +195,8 @@ def student_delete(request, pk):
     attendance = student.attendance_records.count()
     error = ""
     if request.method == "POST":
-        if request.POST.get("confirm_id", "").strip().upper() != student.student_id.upper():
+        typed = "".join(request.POST.get("confirm_id", "").split()).strip("()").upper()
+        if typed != "".join(str(student.student_id).split()).upper():
             error = "Type the student ID exactly to confirm."
         elif request.POST.get("password", "") != str(settings.DELETE_PASSWORD):
             error = "Wrong password."

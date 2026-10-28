@@ -324,6 +324,13 @@ class RegistrationFlowTest(TestCase):
             self.client.post(f"/students/{s.pk}/delete/", data)
             self.assertTrue(Student.objects.filter(pk=s.pk).exists())
 
+    def test_delete_accepts_id_typed_loosely(self):
+        s = make_student_row(self.pratibha, seat=None, status=Student.Status.DEACTIVATED)
+        Student.objects.filter(pk=s.pk).update(student_id="1")
+        r = self.client.post(f"/students/{s.pk}/delete/", {"confirm_id": " (1) ", "password": "9793"})
+        self.assertEqual(r.status_code, 302)
+        self.assertFalse(Student.objects.filter(pk=s.pk).exists())
+
     def test_student_delete_removes_everything_and_frees_seat(self):
         from audits.models import AuditLog
         from fees.models import Payment
