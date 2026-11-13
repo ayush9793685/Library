@@ -132,6 +132,16 @@ def my_profile(request):
     })
 
 
+def _trial_from_request(request):
+    """The trial visitor being converted (?trial=<id>), or None."""
+    trial_id = request.GET.get("trial", "")
+    if not trial_id.isdigit():
+        return None
+    from trials.models import TrialVisitor
+
+    return TrialVisitor.objects.filter(pk=int(trial_id)).exclude(status=TrialVisitor.Status.JOINED).first()
+
+
 def _form_context(form, title):
     return {"form": form, "title": title, "batch_info": form.batch_info, "is_new": form.is_new}
 
@@ -140,6 +150,7 @@ def _form_context(form, title):
 def student_create(request):
     if not _is_admin(request.user):
         return HttpResponseForbidden("Not allowed")
+    trial = _trial_from_request(request)  # set when converting a trial visitor
     if request.method == "POST":
         form = StudentForm(request.POST, request.FILES)
         if form.is_valid():
@@ -148,6 +159,8 @@ def student_create(request):
             except SeatUnavailable as exc:
                 form.add_error("seat_number", str(exc))
             else:
+                if trial:
+                    trial.mark_joined(student)
                 msg = f"Student created. Seat {student.seat_number}."
                 if payment:
                     msg += f" Receipt {payment.receipt_number} recorded."
@@ -156,7 +169,13 @@ def student_create(request):
                     return redirect("fees:receipt", pk=payment.pk)
                 return redirect("students:detail", pk=student.pk)
     else:
-        form = StudentForm()
+        initial = {}
+        if trial:
+            first, _, last = trial.name.strip().partition(" ")
+            initial = {"first_name": first, "last_name": last.strip(), "mobile_number": trial.phone}
+            if trial.program_id and trial.program.is_active:
+                initial["program"] = trial.program_id
+        form = StudentForm(initial=initial)
     return render(request, "students/student_form.html", _form_context(form, "Add Student"))
 
 

@@ -10,18 +10,58 @@
   </div>
 
   <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <form method="get" class="flex items-end gap-4">
-      <div class="flex-1">
-        <label class="mb-1 block text-sm font-semibold text-slate-700" for="student-select">Select Student</label>
-        <select name="student_id" id="student-select" onchange="this.form.submit()">
-          <option value="">— Select a student —</option>
-          {% for s in students %}
-            <option value="{{ s.pk }}" {% if selected_student and selected_student.pk == s.pk %}selected{% endif %}>{{ s.student_id }} — {{ s.first_name }} {{ s.last_name }}</option>
-          {% endfor %}
-        </select>
+    <form method="get" class="flex items-end gap-4" onsubmit="return false;">
+      <div class="relative flex-1">
+        <label class="mb-1 block text-sm font-semibold text-slate-700" for="student-search">Select Student</label>
+        <input type="text" id="student-search" autocomplete="off" placeholder="Type student ID or name"
+               data-url="{% url 'fees:student_search' %}" data-page="{% url 'fees:index' %}"
+               value="{% if selected_student %}{{ selected_student.student_id }} — {{ selected_student.first_name }} {{ selected_student.last_name }}{% endif %}">
+        <div id="student-results" class="absolute left-0 right-0 z-20 mt-1 hidden max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"></div>
       </div>
-      <noscript><button class="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white">View</button></noscript>
+      {% if selected_student %}<a class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700" href="{% url 'fees:index' %}">Clear</a>{% endif %}
     </form>
+    <script>
+      (function () {
+        var input = document.getElementById("student-search");
+        var box = document.getElementById("student-results");
+        var timer = null, items = [];
+        function go(id) { window.location = input.dataset.page + "?student=" + encodeURIComponent(id); }
+        function hide() { box.classList.add("hidden"); box.innerHTML = ""; items = []; }
+        function show(results) {
+          box.innerHTML = ""; items = results;
+          if (!results.length) {
+            box.innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">No student found.</p>';
+            box.classList.remove("hidden"); return;
+          }
+          results.forEach(function (r) {
+            var row = document.createElement("button");
+            row.type = "button";
+            row.className = "block w-full px-3 py-2 text-left text-sm hover:bg-slate-100";
+            row.textContent = r.id + " \u2014 " + r.name;
+            row.addEventListener("mousedown", function (e) { e.preventDefault(); go(r.id); });
+            box.appendChild(row);
+          });
+          box.classList.remove("hidden");
+        }
+        input.addEventListener("focus", function () { input.select(); });
+        input.addEventListener("input", function () {
+          clearTimeout(timer);
+          var q = input.value.trim();
+          if (!q) { hide(); return; }
+          timer = setTimeout(function () {
+            fetch(input.dataset.url + "?q=" + encodeURIComponent(q), { credentials: "same-origin" })
+              .then(function (r) { return r.json(); })
+              .then(function (d) { if (input.value.trim() === q) show(d.results); })
+              .catch(hide);
+          }, 200);
+        });
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); if (items.length) go(items[0].id); }
+          if (e.key === "Escape") hide();
+        });
+        input.addEventListener("blur", function () { setTimeout(hide, 150); });
+      })();
+    </script>
   </div>
 
   {% if selected_student %}

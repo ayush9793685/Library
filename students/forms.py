@@ -44,7 +44,7 @@ class StudentForm(forms.ModelForm):
         max_length=20,
         validators=[RegexValidator(r"^[0-9+\-() ]+$", "Enter a valid phone number.")],
     )
-    primary_email = forms.EmailField(label="Email")
+    primary_email = forms.EmailField(label="Email (optional)", required=False)
     alternate_mobile_number = forms.CharField(
         label="Alternate Phone Number (optional)",
         max_length=20,
@@ -86,7 +86,7 @@ class StudentForm(forms.ModelForm):
     confirm_batch_change = forms.BooleanField(label="I confirm the batch change", required=False)
 
     field_order = [
-        "student_id", "registration_number", "first_name", "middle_name", "last_name",
+        "student_id", "registration_number", "first_name", "middle_name", "last_name", "father_name",
         "date_of_birth", "gender", "mobile_number", "primary_email", "alternate_mobile_number",
         "program", "monthly_fee", "seat_number", "rfid_uid",
         "aadhaar_number", "aadhaar_copy", "profile_photo",
@@ -140,7 +140,7 @@ class StudentForm(forms.ModelForm):
             contact = getattr(self.instance, "contact", None)
             if contact:
                 self.initial["mobile_number"] = contact.mobile_number
-                self.initial["primary_email"] = contact.primary_email
+                self.initial["primary_email"] = contact.primary_email or ""
                 self.initial["alternate_mobile_number"] = contact.alternate_mobile_number
 
         for name, field in self.fields.items():
@@ -179,7 +179,7 @@ class StudentForm(forms.ModelForm):
     class Meta:
         model = Student
         fields = [
-            "student_id", "registration_number", "first_name", "middle_name", "last_name",
+            "student_id", "registration_number", "first_name", "middle_name", "last_name", "father_name",
             "date_of_birth", "gender", "program", "rfid_uid", "profile_photo",
         ]
         widgets = {
@@ -188,7 +188,9 @@ class StudentForm(forms.ModelForm):
 
     # ------------------------------------------------------------ field cleaning
     def clean_primary_email(self):
-        email = self.cleaned_data["primary_email"].strip()
+        email = (self.cleaned_data.get("primary_email") or "").strip()
+        if not email:
+            return None  # optional; NULL keeps the unique rule from clashing on blanks
         clash = ContactInformation.objects.filter(primary_email__iexact=email)
         if self.instance.pk:
             clash = clash.exclude(student=self.instance)
@@ -316,7 +318,7 @@ class StudentForm(forms.ModelForm):
         ContactInformation.objects.update_or_create(
             student=student,
             defaults={
-                "primary_email": self.cleaned_data["primary_email"],
+                "primary_email": self.cleaned_data.get("primary_email") or None,
                 "mobile_number": self.cleaned_data["mobile_number"],
                 "alternate_mobile_number": self.cleaned_data.get("alternate_mobile_number", ""),
             },

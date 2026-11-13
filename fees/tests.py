@@ -198,3 +198,27 @@ class PaymentDeleteTests(TestCase):
         u = User.objects.create_user(username="stu", password="x", role="student")
         self.client.force_login(u)
         self.assertEqual(self.client.post(f"/fees/receipt/{p2.pk}/delete/", {"password": "9793"}).status_code, 403)
+
+
+@override_settings(PRIVATE_MEDIA_ROOT=PRIVATE)
+class FeesPageSearchTests(TestCase):
+    def setUp(self):
+        self.client.force_login(make_admin())
+        self.st = make_student_row(batch("Pratibha"), seat=1)
+        Student.objects.filter(pk=self.st.pk).update(student_id="0007", first_name="Ayush", last_name="Yadav")
+
+    def test_search_by_full_name_words_and_id(self):
+        for q in ("Ayush Yad", "yadav ayush", "0007", "ayush \u2014 yadav"):
+            data = self.client.get("/fees/students/search/", {"q": q}).json()["results"]
+            self.assertEqual([r["id"] for r in data], ["0007"], q)
+        self.assertEqual(self.client.get("/fees/students/search/", {"q": "zzz"}).json()["results"], [])
+
+    def test_page_opens_student_by_typed_code_and_has_no_dropdown(self):
+        page = self.client.get("/fees/")
+        self.assertNotContains(page, "<select")
+        self.assertContains(page, 'id="student-search"')
+        r = self.client.get("/fees/", {"student": "0007"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Ayush Yadav")
+        self.assertEqual(self.client.get("/fees/", {"student": "9999"}).status_code, 404)
+        self.assertEqual(self.client.get("/fees/", {"student_id": self.st.pk}).status_code, 200)

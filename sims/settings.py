@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'notifications_center',
     'helpdesk',
     'attendance',
+    'trials',
 ]
 
 MIDDLEWARE = [

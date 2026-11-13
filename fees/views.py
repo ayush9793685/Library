@@ -46,19 +46,22 @@ def index(request):
         ).aggregate(total=Sum("amount_paid"))["total"] or Decimal("0")
         total_collected = Payment.objects.filter(is_cancelled=False).aggregate(total=Sum("amount_paid"))["total"] or Decimal("0")
 
-        students = Student.objects.select_related("program").order_by("student_id")
         selected_student = None
         summary = None
+        base = Student.objects.select_related("program")
+        student_code = request.GET.get("student", "").strip()
         student_pk = request.GET.get("student_id", "").strip()
-        if student_pk:
-            selected_student = get_object_or_404(Student.objects.select_related("program"), pk=student_pk)
+        if student_code:
+            selected_student = get_object_or_404(base, student_id__iexact=student_code)
+        elif student_pk:
+            selected_student = get_object_or_404(base, pk=student_pk)
+        if selected_student:
             summary = student_fee_summary(selected_student)
 
         return render(request, "fees/admin_index.html", {
             "payments": payments,
             "total_collected": total_collected,
             "month_total": month_total,
-            "students": students,
             "selected_student": selected_student,
             "summary": summary,
         })
@@ -148,12 +151,14 @@ def student_search(request):
     q = request.GET.get("q", "").strip()
     results = []
     if q:
-        matches = Student.objects.filter(
-            Q(student_id__istartswith=q) | Q(student_id__icontains=q)
-            | Q(first_name__icontains=q) | Q(last_name__icontains=q)
-        ).order_by("student_id")[:8]
+        matches = Student.objects.all()
+        for word in q.replace("—", " ").split():
+            matches = matches.filter(
+                Q(student_id__icontains=word) | Q(first_name__icontains=word)
+                | Q(middle_name__icontains=word) | Q(last_name__icontains=word)
+            )
         results = [
             {"id": s.student_id, "name": " ".join(p for p in [s.first_name, s.middle_name, s.last_name] if p)}
-            for s in matches
+            for s in matches.order_by("student_id")[:8]
         ]
     return JsonResponse({"results": results})

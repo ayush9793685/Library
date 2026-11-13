@@ -196,7 +196,7 @@ def export_students_csv(request):
     response.write("﻿")  # lets Excel read names correctly
     writer = csv.writer(response)
     writer.writerow([
-        "Student ID", "Name", "Registration No", "Batch", "Seat No", "Monthly Fee",
+        "Student ID", "Name", "Father's Name", "Registration No", "Batch", "Seat No", "Monthly Fee",
         "Status", "Fee Status", "Plan Valid Until", "Aadhaar (masked)", "RFID Card",
         "Phone", "Alternate Phone", "Email",
     ])
@@ -210,13 +210,13 @@ def export_students_csv(request):
         contact = getattr(s, "contact", None)
         name = " ".join(p for p in [s.first_name, s.middle_name, s.last_name] if p)
         writer.writerow([
-            s.student_id, safe(name), s.registration_number,
+            s.student_id, safe(name), safe(s.father_name), s.registration_number,
             s.program.name if s.program else "", s.seat_number or "", s.monthly_fee,
             s.get_status_display(), s.payment_status,
             timezone.localtime(s.subscription_end).strftime("%Y-%m-%d") if s.subscription_end else "",
             s.aadhaar_masked, s.rfid_uid or "",
             contact.mobile_number if contact else "",
             contact.alternate_mobile_number if contact else "",
-            contact.primary_email if contact else "",
+            (contact.primary_email or "") if contact else "",
         ])
     return response

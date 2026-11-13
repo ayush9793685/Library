@@ -5,6 +5,7 @@ def sidebar_menu(request):
     admin_links = [
         ("Dashboard", "/dashboard/"),
         ("Students", "/students/"),
+        ("Trial Visitors", "/trials/"),
         ("Batches & Seats", "/academics/"),
         ("Fees & Payments", "/fees/"),
         ("Attendance", "/attendance/"),

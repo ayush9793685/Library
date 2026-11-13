@@ -33,6 +33,7 @@ urlpatterns = [
     path('audits/', include('audits.urls')),
     path('reports/', include('reports.urls')),
     path('attendance/', include('attendance.urls')),
+    path('trials/', include('trials.urls')),
 ]
 
 if settings.DEBUG:

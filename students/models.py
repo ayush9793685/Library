@@ -40,6 +40,7 @@ class Student(models.Model):
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100)
+    father_name = models.CharField("Father's name", max_length=150, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
     nationality = models.CharField(max_length=100, blank=True)
@@ -263,7 +264,8 @@ class Student(models.Model):
 
 class ContactInformation(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name="contact")
-    primary_email = models.EmailField(unique=True)
+    # Optional. Stored as NULL (not "") when empty so the unique rule only applies to real emails.
+    primary_email = models.EmailField(unique=True, null=True, blank=True)
     secondary_email = models.EmailField(blank=True)
     mobile_number = models.CharField(max_length=20, validators=[RegexValidator(r"^[0-9+\-() ]+$")])
     alternate_mobile_number = models.CharField(max_length=20, blank=True, validators=[RegexValidator(r"^[0-9+\-() ]*$")])
