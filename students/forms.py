@@ -1,3 +1,4 @@
+import logging
 import re
 from decimal import Decimal
 
@@ -13,6 +14,9 @@ from audits.utils import create_audit_log
 from . import seats
 from .models import Address, ContactInformation, EmergencyContact, Student
 from .security import hash_aadhaar, validate_aadhaar
+
+
+logger = logging.getLogger(__name__)
 
 
 class SeatUnavailable(Exception):
@@ -113,6 +117,24 @@ class StudentForm(forms.ModelForm):
             else f"{b.name} - Rs. {b.monthly_fee:g}/month"
         )
         self.fields["program"].widget.attrs["data-fees"] = ",".join(f"{k}:{v}" for k, v in self.fee_map.items())
+
+        # New students: suggest the lowest seat that is free for each batch's timings. The page
+        # fills the Seat Number box with it when a batch is chosen; the admin can still change it.
+        if self.is_new:
+            self.seat_suggestions = {}
+            for b in batches:
+                free = seats.free_seats(b.shift)
+                self.seat_suggestions[str(b.pk)] = free[0] if free else ""
+            self.fields["seat_number"].widget.attrs["data-suggest"] = ",".join(
+                f"{k}:{v}" for k, v in self.seat_suggestions.items()
+            )
+            self.fields["seat_number"].help_text = (
+                "Filled in with the lowest free seat for the chosen batch. "
+                "You can type another free seat, or clear the box to let the system pick."
+            )
+            chosen = self.initial.get("program")  # e.g. converting a trial visitor
+            if chosen is not None and not self.initial.get("seat_number"):
+                self.initial["seat_number"] = self.seat_suggestions.get(str(chosen)) or None
 
         if self.is_new:
             self.fields["aadhaar_number"].required = True
@@ -378,7 +400,12 @@ class StudentForm(forms.ModelForm):
                         user=user, registration=True,
                     )
         except IntegrityError as exc:
-            raise SeatUnavailable("That seat was just taken by another student. Please try again.") from exc
+            # Do not blame the seat for every database error: log the real cause and say what failed.
+            logger.exception("Student save failed with IntegrityError")
+            detail = str(exc)
+            if "unique_seat_per_shift" in detail:
+                raise SeatUnavailable("That seat was just taken by another student. Please try again.") from exc
+            raise SeatUnavailable(f"Could not save the student (database error): {detail[:300]}") from exc
 
         action = "student_create" if self.is_new else "profile_update"
         if self.is_new:

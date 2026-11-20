@@ -60,6 +60,24 @@
       });
       if (!fee.value && map[batch.value] !== undefined) fee.value = map[batch.value];
     }
+    // New student: choosing a batch fills the Seat Number box with the lowest free seat for it.
+    // A seat the admin typed by hand is left alone; only an empty box or the previous
+    // auto-filled value is replaced.
+    var seat = document.getElementById("id_seat_number");
+    if (batch && seat && seat.getAttribute("data-suggest") !== null && !seat.disabled) {
+      var suggest = {};
+      (seat.getAttribute("data-suggest") || "").split(",").forEach(function (pair) {
+        var p = pair.split(":"); if (p.length === 2) suggest[p[0]] = p[1];
+      });
+      var lastAuto = (seat.value !== "" && seat.value === suggest[batch.value]) ? seat.value : null;
+      var fillSeat = function () {
+        var s = suggest[batch.value];
+        if (s === undefined) return;
+        if (seat.value === "" || seat.value === lastAuto) { seat.value = s; lastAuto = s; }
+      };
+      batch.addEventListener("change", fillSeat);
+      if (seat.value === "") fillSeat();
+    }
     var collect = document.getElementById("id_collect_fee");
     var mode = document.getElementById("id_payment_mode");
     var ref = document.getElementById("id_payment_reference");
